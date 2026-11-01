@@ -52,7 +52,8 @@ function buildApp() {
 
   app.use('/api/auth', require('./routes/auth'));
   app.use('/api/users', require('./routes/users'));
-  const { studentRecords, recordEdit } = require('./routes/records');
+  const { studentRecords, recordEdit, bulkAttendance } = require('./routes/records');
+  app.use('/api/attendance/bulk', bulkAttendance);
   app.use('/api/students/:id', studentRecords);
   app.use('/api/students', require('./routes/students'));
   app.use('/api/records', recordEdit);
