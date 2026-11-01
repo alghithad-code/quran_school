@@ -8,8 +8,10 @@ async function main() {
   await mongoose.connect(config.mongoUri, { serverSelectionTimeoutMS: 10000 });
   console.log('✅ متصل بقاعدة البيانات');
   await require('./models/User').init(); // إنشاء الفهارس
+  await Promise.all(Object.values(require('./models')).map((m) => m.init()));
   await bootstrapAdmin();
 
+  require('./lib/jobs').start();
   const app = buildApp();
   app.listen(config.port, () => console.log(`🚀 يعمل على المنفذ ${config.port}`));
 }

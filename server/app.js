@@ -51,13 +51,31 @@ function buildApp() {
 
   app.use('/api/auth', require('./routes/auth'));
   app.use('/api/users', require('./routes/users'));
+  const { studentRecords, recordEdit } = require('./routes/records');
+  app.use('/api/students/:id', studentRecords);
+  app.use('/api/students', require('./routes/students'));
+  app.use('/api/records', recordEdit);
+  app.use('/api/transfers', require('./routes/transfers'));
+  app.use('/api/levels', require('./routes/levels'));
+  app.use('/api/promotions', require('./routes/promotions'));
+  app.use('/api/notifications', require('./routes/notifications'));
+  app.use('/api/dashboard', require('./routes/dashboard'));
+  app.use('/api/reports', require('./routes/reports'));
+  app.use('/api/audit', require('./routes/audit'));
+  app.use('/api/settings', require('./routes/settings'));
+  app.use('/api/backups', require('./routes/backups'));
 
   app.use('/api', (req, res) => res.status(404).json({ error: 'غير موجود' }));
 
   // تقديم الواجهة المبنية
   const dist = path.join(__dirname, '..', 'client', 'dist');
   if (fs.existsSync(dist)) {
-    app.use(express.static(dist, { index: false, maxAge: '1h' }));
+    app.use(express.static(dist, {
+      index: false,
+      maxAge: '1h',
+      // ملف الـ Service Worker يجب ألا يُخزَّن مؤقتاً حتى تصل التحديثات
+      setHeaders: (res, file) => { if (file.endsWith('sw.js')) res.setHeader('Cache-Control', 'no-cache'); },
+    }));
     app.get('*', (req, res) => res.sendFile(path.join(dist, 'index.html')));
   }
 
