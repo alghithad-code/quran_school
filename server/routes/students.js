@@ -1,7 +1,8 @@
 const express = require('express');
 const mongoose = require('mongoose');
 const { z } = require('zod');
-const { Student, Attendance, Level, Transfer, LevelChange } = require('../models');
+const { Student, Attendance, Level, Transfer, LevelChange, Group } = require('../models');
+const { progressFor } = require('../lib/progress');
 const User = require('../models/User');
 const { requireAuth, requireRole } = require('../middleware/auth');
 const { loadStudent, isManager } = require('../lib/access');
@@ -41,7 +42,8 @@ router.get('/', async (req, res, next) => {
     ]);
     const att = await Attendance.find({ studentId: { $in: items.map((s) => s._id) }, date: todayStr() }).select('studentId status').lean();
     const todayMap = Object.fromEntries(att.map((a) => [String(a.studentId), a.status]));
-    res.json({ items: items.map((s) => present(s, { today: todayMap[String(s._id)] || null })), total, page, pages: Math.ceil(total / limit) });
+    const prog = await progressFor(items);
+    res.json({ items: items.map((s) => present(s, { today: todayMap[String(s._id)] || null, progress: prog.get(String(s._id)) || null })), total, page, pages: Math.ceil(total / limit) });
   } catch (err) { next(err); }
 });
 
@@ -85,12 +87,14 @@ router.get('/:id', async (req, res, next) => {
     const s = await loadStudent(req, res);
     if (!s) return;
     await s.populate([{ path: 'teacherId', select: 'name' }, { path: 'levelId', select: 'name' }]);
+    const [prog, groups] = await Promise.all([progressFor([s], { detail: true }), Group.find({ studentIds: s._id }).select('name goalType goalText').lean()]);
     const [transfers, changes] = await Promise.all([
       Transfer.find({ studentId: s._id }).sort({ createdAt: -1 }).limit(20).populate('fromTeacherId toTeacherId byId', 'name').lean(),
       LevelChange.find({ studentId: s._id }).sort({ createdAt: -1 }).limit(20).populate('fromLevelId toLevelId', 'name').populate('byId', 'name').lean(),
     ]);
     res.json({
-      student: present(s),
+      student: present(s, { progress: prog.get(String(s._id)) || null }),
+      groups: groups.map((g) => ({ id: String(g._id), name: g.name, goalType: g.goalType, goalText: g.goalText })),
       transfers: transfers.map((t) => ({ at: t.createdAt, from: t.fromTeacherId?.name, to: t.toTeacherId?.name, by: t.byId?.name })),
       levelChanges: changes.map((c) => ({ at: c.createdAt, type: c.type, from: c.fromLevelId?.name, to: c.toLevelId?.name, reason: c.reason, by: c.byId?.name })),
     });

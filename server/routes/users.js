@@ -64,7 +64,7 @@ const createSchema = z.object({
   username,
   password,
   phone: phoneField,
-  role: z.enum(['supervisor', 'teacher']).default('teacher'),
+  role: z.enum(['admin', 'supervisor', 'teacher']).default('teacher'),
 });
 
 const updateSchema = z.object({
