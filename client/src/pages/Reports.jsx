@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { api } from '../api.js';
-import { ErrorBox, Loading, go, qs, todayStr, useLoad } from '../ui.jsx';
+import { ErrorBox, IconBtn, Loading, go, qs, todayStr, useLoad } from '../ui.jsx';
 
 function Report({ path }) {
   const { data, loading, error } = useLoad(() => api(path), [path]);
@@ -9,9 +9,9 @@ function Report({ path }) {
   const xlsx = '/api' + path + (path.includes('?') ? '&' : '?') + 'format=xlsx';
   return (
     <div className="report">
-      <div className="row noprint">
-        <button className="btn" onClick={() => window.print()}>طباعة / حفظ PDF</button>
-        <a className="btn ghost" href={xlsx}>تصدير Excel</a>
+      <div className="irow noprint" style={{ marginBottom: 10 }}>
+        <IconBtn icon="printer" tone="gold" caption="طباعة / PDF" label="طباعة أو حفظ PDF" onClick={() => window.print()} />
+        <IconBtn icon="download" tone="ok" caption="Excel" label="تصدير Excel" href={xlsx} />
       </div>
       <h2 className="h">{data.title}</h2>
       <p className="muted small">الفترة: {data.period.from} إلى {data.period.to}</p>
@@ -84,7 +84,7 @@ export default function Reports({ me, query }) {
             {found.map((s) => <button key={s.id} className="card line" style={{ width: '100%' }} onClick={() => nav({ id: s.id })}><span>{s.name}</span><small className="muted">{s.level?.name || ''}</small></button>)}
           </>
         )}
-        {type === 'student' && id && <button className="btn ghost" onClick={() => nav({ id: '' })}>اختيار طالب آخر</button>}
+        {type === 'student' && id && <IconBtn icon="repeat" caption="اختيار طالب آخر" label="اختيار طالب آخر" onClick={() => nav({ id: '' })} />}
       </div>
       {path ? <Report path={path} /> : <p className="muted center noprint">{type === 'teacher' ? 'اختر معلماً لعرض التقرير' : type === 'student' ? 'اختر طالباً لعرض التقرير' : ''}</p>}
     </div>

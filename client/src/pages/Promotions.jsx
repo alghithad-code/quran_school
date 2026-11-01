@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { api } from '../api.js';
-import { Empty, Loading, fmtDT, useFlash, useLoad } from '../ui.jsx';
+import { Empty, IconBtn, Loading, fmtDT, useFlash, useLoad } from '../ui.jsx';
 
 const ST = { pending: ['معلّق', 'warn'], approved: ['موافَق', 'ok'], rejected: ['مرفوض', 'bad'] };
 
@@ -44,9 +44,9 @@ export default function Promotions({ me, online }) {
           {r.note && <div className="small">ملاحظة المعلم: {r.note}</div>}
           {r.status !== 'pending' && <div className="small muted">القرار: {r.decidedBy} · {fmtDT(r.decidedAt)} {r.decisionNote && `· ${r.decisionNote}`}</div>}
           {isManager && r.status === 'pending' && (
-            <div className="row" style={{ marginBottom: 0 }}>
-              <button className="btn" disabled={!online || busy} onClick={() => decide(r, true)}>موافقة</button>
-              <button className="btn ghost danger" disabled={!online || busy} onClick={() => decide(r, false)}>رفض</button>
+            <div className="irow">
+              <IconBtn icon="check" tone="ok" caption="موافقة" label="موافقة على الترقية" disabled={!online || busy} onClick={() => decide(r, true)} />
+              <IconBtn icon="x" tone="danger" caption="رفض" label="رفض الطلب" disabled={!online || busy} onClick={() => decide(r, false)} />
             </div>
           )}
         </div>

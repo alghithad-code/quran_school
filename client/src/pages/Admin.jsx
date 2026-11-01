@@ -1,6 +1,6 @@
 import { useRef, useState } from 'react';
 import { api, upload } from '../api.js';
-import { Empty, Loading, fmtDT, useFlash, useLoad } from '../ui.jsx';
+import { Empty, IconBtn, Loading, fmtDT, useFlash, useLoad } from '../ui.jsx';
 
 const KIND = { auto: 'تلقائية', manual: 'يدوية', 'pre-restore': 'قبل استعادة', uploaded: 'مرفوعة' };
 const mb = (n) => (n ? (n / 1024 / 1024).toFixed(2) + ' م.ب' : '—');
@@ -66,9 +66,9 @@ export default function Admin({ online }) {
       <div className="card">
         <h3>النسخ الاحتياطي</h3>
         <p className="small muted">تُنشأ نسخة تلقائية أسبوعياً. نزّل نسخة دورية واحفظها خارج الاستضافة. الملف يحتوي بيانات المدرسة وتجزئات كلمات المرور، فاحفظه بسرية.</p>
-        <div className="row wrap">
-          <button className="btn" disabled={busy || !online} onClick={() => run(() => api('/backups', { method: 'POST' }), 'تم إنشاء النسخة')}>إنشاء نسخة الآن</button>
-          <button className="btn ghost" disabled={busy || !online} onClick={() => file.current.click()}>رفع نسخة محفوظة</button>
+        <div className="irow" style={{ marginBottom: 10 }}>
+          <IconBtn icon="plus" tone="on" caption="نسخة الآن" label="إنشاء نسخة احتياطية" disabled={busy || !online} onClick={() => run(() => api('/backups', { method: 'POST' }), 'تم إنشاء النسخة')} />
+          <IconBtn icon="upload" caption="رفع نسخة" label="رفع نسخة محفوظة" disabled={busy || !online} onClick={() => file.current.click()} />
           <input ref={file} type="file" accept=".gz,application/gzip" hidden onChange={onFile} />
         </div>
         {bk.loading && <Loading />}
@@ -79,9 +79,9 @@ export default function Admin({ online }) {
             <div className="small muted">{fmtDT(b.at)} · {mb(b.size)}</div>
             {b.error && <div className="small c-bad">{b.error}</div>}
             {b.status === 'success' && (
-              <div className="row" style={{ marginBottom: 0, marginTop: 6 }}>
-                <a className="btn ghost sm" href={`/api/backups/${b.id}/download`}>تنزيل</a>
-                <button className="btn ghost danger sm" disabled={busy || !online} onClick={() => restore(b)}>استعادة</button>
+              <div className="irow" style={{ marginTop: 6 }}>
+                <IconBtn icon="download" tone="ok" label="تنزيل النسخة" href={`/api/backups/${b.id}/download`} />
+                <IconBtn icon="restore" tone="danger" label="استعادة هذه النسخة" disabled={busy || !online} onClick={() => restore(b)} />
               </div>
             )}
           </div>

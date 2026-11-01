@@ -25,8 +25,8 @@ export default function Home({ user }) {
         <>
           <div className="grid">
             <Card n={c.students} label="إجمالي الطلاب" to="/students" />
-            <Card n={c.teachersActive} label="معلمون نشطون" to={'/users' + qs({ role: 'teacher', status: 'active' })} />
-            <Card n={c.teachersSuspended} label="معلمون موقوفون" to={'/users' + qs({ role: 'teacher', status: 'suspended' })} />
+            <Card n={c.teachersActive} label="معلمون نشطون" to={'/teachers' + qs({ status: 'active' })} />
+            <Card n={c.teachersSuspended} label="معلمون موقوفون" to={'/teachers' + qs({ status: 'suspended' })} />
             <Card n={c.presentToday} label="حاضرون اليوم" to={'/students' + qs({ filter: 'present_today' })} />
             <Card n={c.absentToday} label="غائبون اليوم" to={'/students' + qs({ filter: 'absent_today' })} />
             <Card n={`${c.attendanceRate}%`} label="نسبة الحضور اليوم" to={'/students' + qs({ filter: 'present_today' })} />

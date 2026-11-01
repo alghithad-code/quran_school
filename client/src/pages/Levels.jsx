@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import { api } from '../api.js';
 import { SURAHS } from '../quran.js';
-import { Empty, Icon, Loading, Modal, qs, summarizeSurahs, useFlash, useLoad } from '../ui.jsx';
+import { Empty, Icon, IconBtn, Loading, Modal, qs, summarizeSurahs, useFlash, useLoad } from '../ui.jsx';
 
 // اختيار السور يدوياً: بالضغط على كل سورة، أو بتحديد نطاق من سورة إلى سورة
 function SurahPicker({ value, onChange, taken }) {
@@ -73,7 +73,7 @@ export default function Levels({ online }) {
   if (loading) return <Loading />;
   return (
     <div>
-      <div className="row between"><h2 className="h" style={{ margin: 0 }}>المستويات</h2><button className="btn" disabled={!online} onClick={() => setForm({ name: '', description: '', surahs: [] })}><Icon name="plus" size={18} /> مستوى</button></div>
+      <div className="row between"><h2 className="h" style={{ margin: 0 }}>المستويات</h2><IconBtn icon="plus" tone="on" caption="مستوى" label="إضافة مستوى" disabled={!online} onClick={() => setForm({ name: '', description: '', surahs: [] })} /></div>
       <p className="small muted">الترتيب من الأدنى إلى الأعلى، والترقية تنقل الطالب للمستوى التالي. لكل مستوى سور تحددها يدوياً.</p>
       {flash.node}
       {data?.items.length === 0 && <Empty text="لم تُنشأ مستويات بعد" />}
@@ -83,11 +83,11 @@ export default function Levels({ online }) {
           <div className="small">{summarizeSurahs(l.surahs, SURAHS)}</div>
           {l.description && <div className="small muted">{l.description}</div>}
           <div className="small muted">المعلمون: {l.teachers.length ? l.teachers.map((t) => t.name).join('، ') : 'لا يوجد'}</div>
-          <div className="row wrap" style={{ marginBottom: 0 }}>
-            <button className="btn ghost sm" disabled={!online || busy || i === 0} onClick={() => move(i, -1)}>▲</button>
-            <button className="btn ghost sm" disabled={!online || busy || i === data.items.length - 1} onClick={() => move(i, 1)}>▼</button>
-            <button className="btn ghost" disabled={!online} onClick={() => setForm({ id: l.id, name: l.name, description: l.description, surahs: l.surahs || [] })}>تعديل</button>
-            <button className="btn ghost danger" disabled={!online || busy} onClick={() => del(l)}>حذف</button>
+          <div className="irow">
+            <IconBtn icon="arrowup" label="تقديم" disabled={!online || busy || i === 0} onClick={() => move(i, -1)} />
+            <IconBtn icon="down" label="تأخير" disabled={!online || busy || i === data.items.length - 1} onClick={() => move(i, 1)} />
+            <IconBtn icon="edit" label="تعديل" disabled={!online} onClick={() => setForm({ id: l.id, name: l.name, description: l.description, surahs: l.surahs || [] })} />
+            <IconBtn icon="trash" tone="danger" label="حذف" disabled={!online || busy} onClick={() => del(l)} />
           </div>
         </div>
       ))}

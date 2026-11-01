@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { api } from '../api.js';
 import { SURAHS } from '../quran.js';
-import { CAT_AR, DAYS_AR, ErrorBox, Loading, Modal, STATUS_AR, fmtDT, go, gradeLabel, qs, summarizeSurahs, todayStr, useFlash, useLoad, useSettings } from '../ui.jsx';
+import { CAT_AR, DAYS_AR, ErrorBox, IconBtn, Loading, Modal, STATUS_AR, fmtDT, go, gradeLabel, qs, summarizeSurahs, todayStr, useFlash, useLoad, useSettings } from '../ui.jsx';
 
 const LVL_AR = { assign: 'تعيين', promotion: 'ترقية', demotion: 'خفض' };
 
@@ -126,14 +126,14 @@ export default function StudentDetail({ id, me, online }) {
         {levels.find((l) => l.id === s.level?.id)?.surahs?.length > 0 && <div className="small muted">سور المستوى: {summarizeSurahs(levels.find((l) => l.id === s.level?.id).surahs, SURAHS)}</div>}
         <div className="small">موضع الحفظ: {s.position || '—'}</div>
         {s.notes && <div className="small muted">{s.notes}</div>}
-        <div className="row wrap" style={{ marginTop: 10, marginBottom: 0 }}>
-          {s.whatsapp && <a className="btn ghost" href={s.whatsapp} target="_blank" rel="noreferrer">واتساب</a>}
-          <button className="btn ghost" disabled={!online} onClick={() => setModal({ edit: true, f: { name: s.name, age: s.age ?? '', phone: s.phone, enrolledAt: s.enrolledAt, position: s.position, notes: s.notes } })}>تعديل</button>
-          <button className="btn ghost" onClick={() => go('/reports' + qs({ type: 'student', id: s.id }))}>التقرير</button>
-          {!isManager && active && <button className="btn ghost" disabled={!online} onClick={() => setModal({ promo: true, note: '' })}>طلب ترقية</button>}
-          {isManager && <button className="btn ghost" disabled={!online} onClick={() => setModal({ transfer: true, to: '' })}>نقل</button>}
-          {isManager && <button className="btn ghost" disabled={!online} onClick={() => setModal({ level: true, levelId: '', reason: '' })}>المستوى</button>}
-          {isManager && <button className="btn ghost" disabled={!online} onClick={() => setModal({ status: true, value: s.status })}>الحالة</button>}
+        <div className="irow" style={{ marginTop: 10 }}>
+          {s.whatsapp && <IconBtn icon="chat" tone="wa" label="واتساب" href={s.whatsapp} />}
+          <IconBtn icon="edit" label="تعديل" disabled={!online} onClick={() => setModal({ edit: true, f: { name: s.name, age: s.age ?? '', phone: s.phone, enrolledAt: s.enrolledAt, position: s.position, notes: s.notes } })} />
+          <IconBtn icon="file" tone="gold" label="تقرير الطالب" onClick={() => go('/reports' + qs({ type: 'student', id: s.id }))} />
+          {!isManager && active && <IconBtn icon="arrowup" label="طلب ترقية" disabled={!online} onClick={() => setModal({ promo: true, note: '' })} />}
+          {isManager && <IconBtn icon="repeat" label="نقل إلى معلم آخر" disabled={!online} onClick={() => setModal({ transfer: true, to: '' })} />}
+          {isManager && <IconBtn icon="layers" label="تغيير المستوى" disabled={!online} onClick={() => setModal({ level: true, levelId: '', reason: '' })} />}
+          {isManager && <IconBtn icon="power" tone="danger" label="حالة الطالب" disabled={!online} onClick={() => setModal({ status: true, value: s.status })} />}
         </div>
       </div>
       {flash.node}
@@ -142,17 +142,17 @@ export default function StudentDetail({ id, me, online }) {
         <div className="card">
           <h3>تسجيل اليوم</h3>
           <div className="muted small">الحضور: {todayAtt ? (todayAtt.status === 'present' ? 'حاضر' : 'غائب') : 'لم يُسجَّل'}</div>
-          <div className="row wrap" style={{ marginBottom: 0 }}>
-            <button className="btn" disabled={!online} onClick={() => setModal({ kind: 'attendance', rec: todayAtt?.editable ? todayAtt : null })}>الحضور</button>
-            <button className="btn" disabled={!online} onClick={() => setModal({ kind: 'hifz' })}>+ حفظ</button>
-            <button className="btn" disabled={!online} onClick={() => setModal({ kind: 'review' })}>+ مراجعة</button>
-            <button className="btn ghost" disabled={!online} onClick={() => setModal({ kind: 'note' })}>+ ملاحظة</button>
+          <div className="irow">
+            <IconBtn icon="check" tone="ok" caption="الحضور" label="تسجيل الحضور" disabled={!online} onClick={() => setModal({ kind: 'attendance', rec: todayAtt?.editable ? todayAtt : null })} />
+            <IconBtn icon="book" tone="ok" caption="حفظ" label="إضافة حفظ" disabled={!online} onClick={() => setModal({ kind: 'hifz' })} />
+            <IconBtn icon="restore" tone="ok" caption="مراجعة" label="إضافة مراجعة" disabled={!online} onClick={() => setModal({ kind: 'review' })} />
+            <IconBtn icon="file" tone="gold" caption="ملاحظة" label="إضافة ملاحظة" disabled={!online} onClick={() => setModal({ kind: 'note' })} />
           </div>
         </div>
       )}
 
       <div className="card">
-        <div className="row between"><h3>جدول الحضور</h3><button className="btn ghost" disabled={!online} onClick={() => setModal({ schedule: true, f: { days: s.schedule.days || [], arrivalTime: s.schedule.arrivalTime || '', startTime: s.schedule.startTime || '', endTime: s.schedule.endTime || '', notes: s.schedule.notes || '' } })}>تعديل</button></div>
+        <div className="row between"><h3>جدول الحضور</h3><IconBtn icon="edit" label="تعديل الجدول" disabled={!online} onClick={() => setModal({ schedule: true, f: { days: s.schedule.days || [], arrivalTime: s.schedule.arrivalTime || '', startTime: s.schedule.startTime || '', endTime: s.schedule.endTime || '', notes: s.schedule.notes || '' } })} /></div>
         <div className="small">الأيام: {s.schedule.days?.length ? s.schedule.days.map((d) => DAYS_AR[d]).join('، ') : 'غير محددة'}</div>
         <div className="small muted">الحضور {s.schedule.arrivalTime || '—'} · التسميع {s.schedule.startTime || '—'} إلى {s.schedule.endTime || '—'}</div>
         {s.schedule.notes && <div className="small muted">{s.schedule.notes}</div>}
@@ -179,7 +179,7 @@ export default function StudentDetail({ id, me, online }) {
               {d.sub && <div className="small">{d.sub}</div>}
               <div className="row between" style={{ marginBottom: 0 }}>
                 <small className="muted">{r.by?.name} · {fmtDT(r.at)}</small>
-                {r.editable && <button className="btn ghost sm" disabled={!online} onClick={() => setModal({ kind: r.kind === 'recitation' ? r.type : r.kind, rec: r })}>تعديل</button>}
+                {r.editable && <IconBtn icon="edit" label="تعديل السجل" disabled={!online} onClick={() => setModal({ kind: r.kind === 'recitation' ? r.type : r.kind, rec: r })} />}
               </div>
             </div>
           );
