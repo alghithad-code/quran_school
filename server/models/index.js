@@ -5,7 +5,8 @@ const oid = (ref, extra = {}) => ({ type: Schema.Types.ObjectId, ref, ...extra }
 const Level = mongoose.model('Level', new Schema({
   name: { type: String, required: true, trim: true, maxlength: 100 },
   description: { type: String, default: '', maxlength: 500 },
-  scope: { type: String, default: '', maxlength: 300 }, // نطاق الحفظ بالسور والأجزاء
+  scope: { type: String, default: '', maxlength: 300 }, // قديم، يُستبدل بقائمة السور
+  surahs: { type: [Number], default: [] }, // أرقام السور المحددة يدوياً لهذا المستوى (1-114)
   order: { type: Number, default: 0, index: true },
 }, { timestamps: true }));
 
