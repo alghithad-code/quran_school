@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { api } from '../api.js';
 import { SURAHS } from '../quran.js';
-import { CAT_AR, DAYS_AR, ErrorBox, Loading, Modal, STATUS_AR, fmtDT, go, gradeLabel, qs, todayStr, useFlash, useLoad, useSettings } from '../ui.jsx';
+import { CAT_AR, DAYS_AR, ErrorBox, Loading, Modal, STATUS_AR, fmtDT, go, gradeLabel, qs, summarizeSurahs, todayStr, useFlash, useLoad, useSettings } from '../ui.jsx';
 
 const LVL_AR = { assign: 'تعيين', promotion: 'ترقية', demotion: 'خفض' };
 
@@ -14,12 +14,12 @@ function describe(r, scale) {
 }
 
 // نموذج واحد للإضافة والتعديل: attendance | hifz | review | note
-function RecordForm({ studentId, kind, rec, onDone, onClose, scale }) {
+function RecordForm({ studentId, kind, rec, onDone, onClose, scale, levelSurahs = [] }) {
   const editing = !!rec;
   const [f, setF] = useState(() => ({
     date: rec?.date || todayStr(),
     status: rec?.status || 'present', note: rec?.note || '',
-    mode: rec?.mode || 'surah', surah: String(rec?.surah || 1), fromAyah: rec?.fromAyah ?? '', toAyah: rec?.toAyah ?? '',
+    mode: rec?.mode || 'surah', surah: String(rec?.surah || levelSurahs[0] || 1), fromAyah: rec?.fromAyah ?? '', toAyah: rec?.toAyah ?? '',
     fromPage: rec?.fromPage ?? '', toPage: rec?.toPage ?? '', grade: rec?.grade || '',
     category: rec?.category || 'general', text: rec?.text || '',
   }));
@@ -59,7 +59,8 @@ function RecordForm({ studentId, kind, rec, onDone, onClose, scale }) {
             <button type="button" className={'btn seg' + (f.mode === 'page' ? ' on' : '')} onClick={() => setF({ ...f, mode: 'page' })}>بالصفحات</button>
           </div>
           {f.mode === 'surah' ? (<>
-            <label>السورة<select value={f.surah} onChange={set('surah')}>{SURAHS.map((s) => <option key={s.number} value={s.number}>{s.number}. {s.name} ({s.ayahs} آية)</option>)}</select></label>
+            <label>السورة<select value={f.surah} onChange={set('surah')}>{levelSurahs.length > 0 && <optgroup label="سور مستوى الطالب">{levelSurahs.map((n) => <option key={'l' + n} value={n}>{n}. {SURAHS[n - 1].name} ({SURAHS[n - 1].ayahs} آية)</option>)}</optgroup>}
+              <optgroup label={levelSurahs.length ? 'باقي السور' : 'السور'}>{SURAHS.filter((s) => !levelSurahs.includes(s.number)).map((s) => <option key={s.number} value={s.number}>{s.number}. {s.name} ({s.ayahs} آية)</option>)}</optgroup></select></label>
             <div className="row">
               <label className="grow">من آية<input type="number" inputMode="numeric" min="1" max={surah.ayahs} value={f.fromAyah} onChange={set('fromAyah')} required /></label>
               <label className="grow">إلى آية<input type="number" inputMode="numeric" min="1" max={surah.ayahs} value={f.toAyah} onChange={set('toAyah')} required /></label>
@@ -122,6 +123,7 @@ export default function StudentDetail({ id, me, online }) {
         <div className="muted small">
           {s.level?.name || 'بلا مستوى'} · المعلم: {s.teacher.name}{s.age ? ` · ${s.age} سنة` : ''}
         </div>
+        {levels.find((l) => l.id === s.level?.id)?.surahs?.length > 0 && <div className="small muted">سور المستوى: {summarizeSurahs(levels.find((l) => l.id === s.level?.id).surahs, SURAHS)}</div>}
         <div className="small">موضع الحفظ: {s.position || '—'}</div>
         {s.notes && <div className="small muted">{s.notes}</div>}
         <div className="row wrap" style={{ marginTop: 10, marginBottom: 0 }}>
@@ -191,7 +193,7 @@ export default function StudentDetail({ id, me, online }) {
         {!info.data.transfers.length && !info.data.levelChanges.length && <p className="muted small">لا يوجد</p>}
       </div>
 
-      {modal?.kind && <RecordForm studentId={id} kind={modal.kind} rec={modal.rec} scale={scale} onDone={done} onClose={() => setModal(null)} />}
+      {modal?.kind && <RecordForm studentId={id} kind={modal.kind} rec={modal.rec} scale={scale} levelSurahs={levels.find((l) => l.id === s.level?.id)?.surahs || []} onDone={done} onClose={() => setModal(null)} />}
 
       {modal?.edit && (
         <Modal title="تعديل بيانات الطالب" onClose={() => setModal(null)}>

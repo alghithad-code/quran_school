@@ -16,7 +16,11 @@ export default function Home({ user }) {
 
   return (
     <div>
-      <h2 className="h">أهلاً {user.name}</h2>
+      <div className="banner">
+        <div className="bismillah sm">بسم الله الرحمن الرحيم</div>
+        <h2>أهلاً {user.name}</h2>
+        <p className="hadith">«خيرُكم من تعلَّم القرآنَ وعلَّمه» <small>(رواه البخاري)</small></p>
+      </div>
       {data.role === 'manager' ? (
         <>
           <div className="grid">

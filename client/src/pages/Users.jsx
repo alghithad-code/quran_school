@@ -34,7 +34,7 @@ export default function Users({ me, online, query }) {
     if (next === 'suspended' && !confirm(`إيقاف حساب ${u.name}؟ ستبقى كل بياناته وطلابه.`)) return;
     run(() => api(`/users/${u.id}/status`, { method: 'POST', body: { status: next } }), next === 'active' ? 'تمت إعادة التنشيط' : 'تم إيقاف الحساب');
   };
-  const reset = (u) => { const p = prompt(`كلمة مرور جديدة لـ ${u.name} (8 أحرف على الأقل)`); if (p) run(() => api(`/users/${u.id}/reset-password`, { method: 'POST', body: { password: p } }), 'تم تعيين كلمة المرور'); };
+  const reset = (u) => { const p = prompt(`كلمة مرور جديدة لـ ${u.name} (6 أحرف على الأقل، حروف إنجليزية وأرقام)`); if (p) run(() => api(`/users/${u.id}/reset-password`, { method: 'POST', body: { password: p } }), 'تم تعيين كلمة المرور'); };
 
   async function openLevels(u) {
     try {
@@ -83,7 +83,7 @@ export default function Users({ me, online, query }) {
             <label>الاسم<input value={form.name} onChange={set(setForm)('name')} required /></label>
             <label>اسم المستخدم<input dir="ltr" value={form.username} onChange={set(setForm)('username')} required /></label>
             <label>رقم الجوال (اختياري)<input dir="ltr" inputMode="tel" placeholder="05XXXXXXXX" value={form.phone} onChange={set(setForm)('phone')} /></label>
-            <label>كلمة المرور<input dir="ltr" type="password" minLength={8} value={form.password} onChange={set(setForm)('password')} required /></label>
+            <label>كلمة المرور (6 أحرف على الأقل، حروف وأرقام)<input dir="ltr" type="password" minLength={6} title="6 أحرف على الأقل، حروف إنجليزية وأرقام" value={form.password} onChange={set(setForm)('password')} required /></label>
             <button className="btn block" disabled={busy}>{busy ? 'جارٍ الحفظ…' : 'حفظ'}</button>
           </form>
         </Modal>
