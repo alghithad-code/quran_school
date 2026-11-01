@@ -59,6 +59,7 @@ function buildApp() {
   app.use('/api/records', recordEdit);
   app.use('/api/transfers', require('./routes/transfers'));
   app.use('/api/levels', require('./routes/levels'));
+  app.use('/api/groups', require('./routes/groups'));
   app.use('/api/promotions', require('./routes/promotions'));
   app.use('/api/notifications', require('./routes/notifications'));
   app.use('/api/dashboard', require('./routes/dashboard'));
