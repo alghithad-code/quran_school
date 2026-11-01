@@ -10,6 +10,22 @@ const Level = mongoose.model('Level', new Schema({
   order: { type: Number, default: 0, index: true },
 }, { timestamps: true }));
 
+// مجموعة ذات هدف (مراجعة كاملة / مراجعة سور / تحسين تجويد / هدف يدوي). الطالب والمعلم قد يكونان في مجموعات ومستويات معاً.
+const Group = mongoose.model('Group', (() => {
+  const s = new Schema({
+    name: { type: String, required: true, trim: true, maxlength: 100 },
+    goalType: { type: String, enum: ['full_review', 'surah_review', 'tajweed', 'custom'], required: true },
+    goalText: { type: String, default: '', maxlength: 300 },
+    surahs: { type: [Number], default: [] },
+    teacherIds: [oid('User')],
+    studentIds: [oid('Student')],
+    createdBy: oid('User'),
+  }, { timestamps: true });
+  s.index({ studentIds: 1 });
+  s.index({ teacherIds: 1 });
+  return s;
+})());
+
 const Student = mongoose.model('Student', (() => {
   const s = new Schema({
     name: { type: String, required: true, trim: true, maxlength: 100 },
@@ -118,4 +134,4 @@ const Backup = mongoose.model('Backup', new Schema({
   counts: Schema.Types.Mixed, error: String, createdBy: oid('User'),
 }, { timestamps: { createdAt: true, updatedAt: false } }));
 
-module.exports = { Level, Student, Attendance, Recitation, Note, Transfer, LevelChange, PromotionRequest, Notification, Setting, Backup };
+module.exports = { Level, Group, Student, Attendance, Recitation, Note, Transfer, LevelChange, PromotionRequest, Notification, Setting, Backup };
