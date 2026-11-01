@@ -15,7 +15,7 @@ const isId = mongoose.isValidObjectId;
 router.get('/', async (req, res, next) => {
   try {
     const levels = await Level.find().sort({ order: 1, createdAt: 1 }).lean();
-    if (!isManager(req.user)) return res.json({ items: levels.map((l) => ({ id: l._id, name: l.name, order: l.order })) });
+    if (!isManager(req.user)) return res.json({ items: levels.map((l) => ({ id: l._id, name: l.name, order: l.order, surahs: l.surahs || [] })) });
     const [counts, teachers] = await Promise.all([
       Student.aggregate([{ $match: { status: 'active' } }, { $group: { _id: '$levelId', n: { $sum: 1 } } }]),
       User.find({ role: 'teacher', levelIds: { $exists: true, $ne: [] } }).select('name levelIds status').lean(),
@@ -23,7 +23,7 @@ router.get('/', async (req, res, next) => {
     const cm = Object.fromEntries(counts.map((c) => [String(c._id), c.n]));
     res.json({
       items: levels.map((l) => ({
-        id: l._id, name: l.name, description: l.description, scope: l.scope, order: l.order,
+        id: l._id, name: l.name, description: l.description, scope: l.scope, surahs: l.surahs || [], order: l.order,
         studentCount: cm[String(l._id)] || 0,
         teachers: teachers.filter((t) => t.levelIds.some((x) => String(x) === String(l._id))).map((t) => ({ id: t._id, name: t.name, status: t.status })),
       })),
@@ -36,6 +36,7 @@ const body = z.object({
   name: z.string().trim().min(2, 'اسم المستوى مطلوب').max(100),
   description: z.string().trim().max(500).optional().default(''),
   scope: z.string().trim().max(300).optional().default(''),
+  surahs: z.array(z.number().int().min(1).max(114)).max(114).optional().default([]).transform((a) => [...new Set(a)].sort((x, y) => x - y)),
 });
 
 router.post('/', manager, async (req, res, next) => {
@@ -83,9 +84,9 @@ router.patch('/:id', manager, async (req, res, next) => {
     if (!isId(req.params.id)) return res.status(404).json({ error: 'غير موجود' });
     const level = await Level.findById(req.params.id);
     if (!level) return res.status(404).json({ error: 'غير موجود' });
-    const p = body.safeParse({ name: level.name, description: level.description, scope: level.scope, ...req.body });
+    const p = body.safeParse({ name: level.name, description: level.description, scope: level.scope, surahs: level.surahs || [], ...req.body });
     if (!p.success) return res.status(400).json({ error: p.error.issues[0].message });
-    const before = { name: level.name, description: level.description, scope: level.scope };
+    const before = { name: level.name, description: level.description, surahs: level.surahs };
     Object.assign(level, p.data);
     await level.save();
     await audit(req, 'level.update', { targetType: 'level', target: level, details: { before, after: p.data } });

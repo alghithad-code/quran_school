@@ -6,6 +6,7 @@ const User = require('../models/User');
 const { requireAuth, requireRole } = require('../middleware/auth');
 const { audit } = require('../utils/audit');
 const { normalizeSaudiPhone, whatsappLink } = require('../utils/phone');
+const { isValidPassword, PASSWORD_MESSAGE } = require('../utils/password');
 
 const router = express.Router();
 router.use(requireAuth, requireRole('admin', 'supervisor'));
@@ -34,7 +35,7 @@ const username = z
   .trim()
   .toLowerCase()
   .regex(/^[a-z0-9._-]{3,40}$/, 'اسم المستخدم: 3-40 حرفاً إنجليزياً أو أرقاماً أو . _ -');
-const password = z.string().min(8, 'كلمة المرور 8 أحرف على الأقل').max(200);
+const password = z.string().max(200).refine(isValidPassword, PASSWORD_MESSAGE);
 const phoneField = z.string().trim().max(30).optional().default('');
 
 const createSchema = z.object({

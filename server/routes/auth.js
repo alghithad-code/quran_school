@@ -7,6 +7,7 @@ const User = require('../models/User');
 const config = require('../config');
 const { requireAuth } = require('../middleware/auth');
 const { audit } = require('../utils/audit');
+const { isValidPassword, PASSWORD_MESSAGE } = require('../utils/password');
 
 const router = express.Router();
 
@@ -82,7 +83,7 @@ router.post('/logout', requireAuth, (req, res) => {
 
 const pwSchema = z.object({
   currentPassword: z.string().min(1),
-  newPassword: z.string().min(8, 'كلمة المرور 8 أحرف على الأقل').max(200),
+  newPassword: z.string().max(200).refine(isValidPassword, PASSWORD_MESSAGE),
 });
 
 router.post('/change-password', requireAuth, async (req, res, next) => {
