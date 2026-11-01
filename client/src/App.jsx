@@ -4,6 +4,8 @@ import { Icon, Logo, ROLE_AR, SettingsCtx, go, useRoute } from './ui.jsx';
 import Login from './pages/Login.jsx';
 import Home from './pages/Home.jsx';
 import Users from './pages/Users.jsx';
+import Teachers from './pages/Teachers.jsx';
+import TeacherDetail from './pages/TeacherDetail.jsx';
 import Students from './pages/Students.jsx';
 import StudentDetail from './pages/StudentDetail.jsx';
 import Levels from './pages/Levels.jsx';
@@ -14,7 +16,7 @@ import Audit from './pages/Audit.jsx';
 import Admin from './pages/Admin.jsx';
 import More from './pages/More.jsx';
 
-const TITLES = { '': 'الرئيسية', students: 'الطلاب', users: 'المستخدمون', levels: 'المستويات', promotions: 'طلبات الترقية', reports: 'التقارير', notifications: 'الإشعارات', audit: 'سجل العمليات', admin: 'الإعدادات والنسخ', more: 'حسابي' };
+const TITLES = { '': 'الرئيسية', students: 'الطلاب', users: 'المشرفون', teachers: 'المعلمون', levels: 'المستويات', promotions: 'طلبات الترقية', reports: 'التقارير', notifications: 'الإشعارات', audit: 'سجل العمليات', admin: 'الإعدادات والنسخ', more: 'حسابي' };
 
 export default function App() {
   const [user, setUser] = useState(null);
@@ -59,7 +61,8 @@ export default function App() {
   let page;
   switch (key) {
     case 'students': page = seg[1] ? <StudentDetail key={seg[1]} id={seg[1]} me={user} online={online} /> : <Students me={user} online={online} query={query} />; break;
-    case 'users': page = isManager ? <Users me={user} online={online} query={query} /> : <Home user={user} />; break;
+    case 'teachers': page = isManager ? (seg[1] ? <TeacherDetail key={seg[1]} id={seg[1]} me={user} online={online} /> : <Teachers online={online} query={query} />) : <Home user={user} />; break;
+    case 'users': page = user.role === 'admin' ? <Users me={user} online={online} query={query} /> : <Home user={user} />; break;
     case 'levels': page = isManager ? <Levels online={online} /> : <Home user={user} />; break;
     case 'promotions': page = <Promotions me={user} online={online} />; break;
     case 'reports': page = <Reports me={user} query={query} />; break;
@@ -72,8 +75,9 @@ export default function App() {
 
   const items = [
     ['', 'home', 'الرئيسية'],
-    ['students', 'users', 'الطلاب'],
-    isManager && ['users', 'user', user.role === 'admin' ? 'المستخدمون' : 'المعلمون'],
+    ['students', 'book', 'الطلاب'],
+    isManager && ['teachers', 'users', 'المعلمون'],
+    user.role === 'admin' && ['users', 'user', 'المشرفون'],
     isManager && ['levels', 'layers', 'المستويات'],
     ['promotions', 'up', 'طلبات الترقية'],
     ['reports', 'chart', 'التقارير'],
@@ -113,7 +117,7 @@ export default function App() {
           <main className="content">{page}</main>
           <nav className="bottom noprint">
             <button className={key === '' ? 'on' : ''} onClick={() => go('/')}><Icon name="home" /><span>الرئيسية</span></button>
-            <button className={key === 'students' ? 'on' : ''} onClick={() => go('/students')}><Icon name="users" /><span>الطلاب</span></button>
+            <button className={key === 'students' ? 'on' : ''} onClick={() => go('/students')}><Icon name="book" /><span>الطلاب</span></button>
             <button className={key === 'notifications' ? 'on' : ''} onClick={() => go('/notifications')}><Icon name="bell" /><span>الإشعارات</span>{unread > 0 && <i className="badge">{unread > 99 ? '99+' : unread}</i>}</button>
             <button onClick={() => setOpen(true)}><Icon name="menu" /><span>القائمة</span></button>
           </nav>
