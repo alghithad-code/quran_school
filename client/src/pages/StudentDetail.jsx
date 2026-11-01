@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { api } from '../api.js';
 import { SURAHS } from '../quran.js';
-import { CAT_AR, DAYS_AR, ErrorBox, IconBtn, Loading, Modal, STATUS_AR, fmtDT, go, gradeLabel, qs, summarizeSurahs, todayStr, useFlash, useLoad, useSettings } from '../ui.jsx';
+import { CAT_AR, DAYS_AR, ErrorBox, IconBtn, Loading, Modal, Progress, STATUS_AR, goalText, fmtDT, go, gradeLabel, qs, summarizeSurahs, todayStr, useFlash, useLoad, useSettings } from '../ui.jsx';
 
 const LVL_AR = { assign: 'تعيين', promotion: 'ترقية', demotion: 'خفض' };
 
@@ -126,6 +126,7 @@ export default function StudentDetail({ id, me, online }) {
         {levels.find((l) => l.id === s.level?.id)?.surahs?.length > 0 && <div className="small muted">سور المستوى: {summarizeSurahs(levels.find((l) => l.id === s.level?.id).surahs, SURAHS)}</div>}
         <div className="small">موضع الحفظ: {s.position || '—'}</div>
         {s.notes && <div className="small muted">{s.notes}</div>}
+        {info.data.groups.length > 0 && <div className="metas" style={{ marginTop: 6 }}>{info.data.groups.map((g) => <a key={g.id} className="goal" href={'#/groups/' + g.id} title={goalText(g)}>{g.name}</a>)}</div>}
         <div className="irow" style={{ marginTop: 10 }}>
           {s.whatsapp && <IconBtn icon="chat" tone="wa" label="واتساب" href={s.whatsapp} />}
           <IconBtn icon="edit" label="تعديل" disabled={!online} onClick={() => setModal({ edit: true, f: { name: s.name, age: s.age ?? '', phone: s.phone, enrolledAt: s.enrolledAt, position: s.position, notes: s.notes } })} />
@@ -137,6 +138,19 @@ export default function StudentDetail({ id, me, online }) {
         </div>
       </div>
       {flash.node}
+
+      {s.progress && (
+        <div className="card">
+          <h3>تقدّم الطالب في {s.level.name}</h3>
+          <Progress pct={s.progress.pct} label={`${s.progress.pct}% — حفظ ${s.progress.memorized} من ${s.progress.total} آية من سور المستوى`} />
+          <div className="chips" style={{ marginTop: 10, marginBottom: 0 }}>
+            {s.progress.surahs.map((x) => (
+              <span key={x.surah} className={'chip' + (x.memorized === x.total ? ' on' : '')} title={`${x.memorized} من ${x.total}`}>{x.name}{x.memorized === x.total ? ' ✓' : x.memorized ? ` ${Math.round((x.memorized / x.total) * 100)}%` : ''}</span>
+            ))}
+          </div>
+          <p className="small muted" style={{ marginBottom: 0 }}>يُحسب من سجلات «الحفظ» بالسورة والآيات (التقييم «يحتاج إلى إعادة» لا يُحتسب، والتسميع بالصفحات غير داخل في الحساب).</p>
+        </div>
+      )}
 
       {active && (
         <div className="card">

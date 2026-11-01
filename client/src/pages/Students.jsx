@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { api } from '../api.js';
-import { Empty, FILTER_AR, Icon, IconBtn, Loading, Modal, STATUS_AR, fmtTime, go, initial, qs, todayStr, useFlash } from '../ui.jsx';
+import { Empty, FILTER_AR, Icon, IconBtn, Loading, Modal, Progress, STATUS_AR, fmtTime, go, initial, qs, todayStr, useFlash } from '../ui.jsx';
 
 const blank = { name: '', age: '', phone: '', enrolledAt: todayStr(), teacherId: '', levelId: '', position: '', notes: '' };
 
@@ -16,6 +16,7 @@ export default function Students({ me, online, query, embedded = false, onFilter
   const [form, setForm] = useState(null);
   const [edit, setEdit] = useState(null);
   const [move, setMove] = useState(null);
+  const [grp, setGrp] = useState(null); // إضافة المحدد إلى مجموعة
   const [busy, setBusy] = useState(false);
   const flash = useFlash();
   const key = JSON.stringify(query);
@@ -77,6 +78,17 @@ export default function Students({ me, online, query, embedded = false, onFilter
       setMove(null); setSel(new Set()); load(1);
     } catch (er) { flash.err(er); } finally { setBusy(false); }
   }
+  async function openGroups() {
+    try { setGrp({ list: (await api('/groups')).items, id: '' }); } catch (e) { flash.err(e); }
+  }
+  async function addToGroup() {
+    setBusy(true);
+    try {
+      const r = await api(`/groups/${grp.id}/members`, { method: 'POST', body: { add: [...sel] } });
+      flash.ok(`تمت إضافة ${sel.size} طالب. عدد طلاب المجموعة الآن ${r.studentCount}`);
+      setGrp(null); setSel(new Set());
+    } catch (e) { flash.err(e); } finally { setBusy(false); }
+  }
   const toggleSel = (id) => setSel((s) => { const n = new Set(s); n.has(id) ? n.delete(id) : n.add(id); return n; });
   const selected = (items || []).filter((s) => sel.has(s.id));
   const active = (items || []).filter((s) => s.status === 'active');
@@ -120,6 +132,7 @@ export default function Students({ me, online, query, embedded = false, onFilter
               <IconBtn icon="check" tone="ok" caption="تحضير" label="تحضير المحدد حاضرين" disabled={!online || busy} onClick={() => bulk('present')} />
               <IconBtn icon="x" tone="danger" caption="غياب" label="تسجيل المحدد غائبين" disabled={!online || busy} onClick={() => bulk('absent')} />
               {isManager && <IconBtn icon="repeat" label="نقل المحدد" caption="نقل" disabled={!online} onClick={() => setMove({ to: '' })} />}
+              {isManager && <IconBtn icon="grid" label="إضافة المحدد إلى مجموعة" caption="مجموعة" disabled={!online} onClick={openGroups} />}
             </div>
           )}
         </div>
@@ -139,6 +152,7 @@ export default function Students({ me, online, query, embedded = false, onFilter
             {isManager && !embedded && <span className="m"><Icon name="user" size={14} />{s.teacher.name || '—'}</span>}
             {s.schedule?.arrivalTime && <span className="m"><Icon name="moon" size={14} />يحضر {fmtTime(s.schedule.arrivalTime)}</span>}
           </div>
+          {s.progress && <Progress thin pct={s.progress.pct} label={`تقدّم ${s.level?.name}: ${s.progress.pct}% (${s.progress.memorized} من ${s.progress.total} آية)`} />}
           <div className="irow">
             {s.status === 'active' && <IconBtn icon="check" tone="sel" on={sel.has(s.id)} label="تحديد" onClick={() => toggleSel(s.id)} />}
             {s.status === 'active' && <IconBtn icon="check" tone={s.today === 'present' ? 'on' : 'ok'} on={s.today === 'present'} caption="حاضر" label="تسجيل حضور" disabled={!online} onClick={() => mark(s, 'present')} />}
@@ -180,6 +194,15 @@ export default function Students({ me, online, query, embedded = false, onFilter
             <label>ملاحظات<input value={edit.notes} onChange={(e) => setEdit({ ...edit, notes: e.target.value })} /></label>
             <button className="btn block" disabled={busy}>حفظ</button>
           </form>
+        </Modal>
+      )}
+
+      {grp && (
+        <Modal title="إضافة إلى مجموعة" onClose={() => setGrp(null)}>
+          {grp.list.length === 0 && <Empty text="لا توجد مجموعات. أنشئ مجموعة أولاً من صفحة المجموعات." />}
+          <label>المجموعة<select value={grp.id} onChange={(e) => setGrp({ ...grp, id: e.target.value })}><option value="">اختر المجموعة</option>{grp.list.map((g) => <option key={g.id} value={g.id}>{g.name}</option>)}</select></label>
+          <p className="small muted">سيُضاف {sel.size} طالب. يبقون في مستوياتهم ومع معلميهم كما هم.</p>
+          <button className="btn block" disabled={busy || !grp.id} onClick={addToGroup}>{busy ? 'جارٍ الإضافة…' : 'إضافة'}</button>
         </Modal>
       )}
 

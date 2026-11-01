@@ -3,6 +3,7 @@ import { api } from '../api.js';
 import { Empty, IconBtn, Loading, Modal, ROLE_AR, initial, qs, useFlash } from '../ui.jsx';
 
 const empty = { name: '', username: '', phone: '', password: '', role: 'supervisor' };
+const ADD = { supervisor: 'مشرف', admin: 'مدير' };
 
 // صفحة المشرفين ومديري النظام (المعلمون لهم صفحتهم الخاصة)
 export default function Users({ me, online, query }) {
@@ -35,7 +36,7 @@ export default function Users({ me, online, query }) {
     <div>
       <div className="row">
         <input className="grow" placeholder="بحث بالاسم أو اسم المستخدم" value={q} onChange={(e) => setQ(e.target.value)} />
-        <IconBtn icon="plus" tone="on" caption="مشرف" label="إضافة مشرف" disabled={!online} onClick={() => setForm({ ...empty })} />
+        <IconBtn icon="plus" tone="on" caption="إضافة" label="إضافة مشرف أو مدير نظام" disabled={!online} onClick={() => setForm({ ...empty, role })} />
       </div>
       <div className="chips">
         <a className={'chip' + (role === 'supervisor' ? ' on' : '')} href="#/users">المشرفون</a>
@@ -61,8 +62,9 @@ export default function Users({ me, online, query }) {
         </div>
       ))}
       {form && (
-        <Modal title="مشرف جديد" onClose={() => setForm(null)}>
+        <Modal title={`${ADD[form.role]} جديد`} onClose={() => setForm(null)}>
           <form onSubmit={async (e) => { e.preventDefault(); if (await run(() => api('/users', { method: 'POST', body: form }), 'تم إنشاء الحساب')) setForm(null); }}>
+            <label>النوع<select value={form.role} onChange={set(setForm)('role')}><option value="supervisor">مشرف</option><option value="admin">مدير نظام (صلاحيات كاملة)</option></select></label>
             <label>الاسم<input value={form.name} onChange={set(setForm)('name')} required /></label>
             <label>اسم المستخدم<input dir="ltr" value={form.username} onChange={set(setForm)('username')} required /></label>
             <label>رقم الجوال (اختياري)<input dir="ltr" inputMode="tel" placeholder="05XXXXXXXX" value={form.phone} onChange={set(setForm)('phone')} /></label>
