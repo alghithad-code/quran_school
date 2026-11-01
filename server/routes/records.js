@@ -1,9 +1,9 @@
 const express = require('express');
 const mongoose = require('mongoose');
-const { Attendance, Recitation, Note } = require('../models');
+const { Attendance, Recitation, Note, Student } = require('../models');
 const User = require('../models/User');
 const { requireAuth } = require('../middleware/auth');
-const { loadStudent, isManager, canEditRecord } = require('../lib/access');
+const { loadStudent, isManager, canEditRecord, studentScope } = require('../lib/access');
 const { getSettings } = require('../lib/settings');
 const { notify, managerIds } = require('../lib/notify');
 const { audit } = require('../utils/audit');
@@ -199,4 +199,44 @@ recordEdit.patch('/:kind/:id', async (req, res, next) => {
   } catch (err) { next(err); }
 });
 
-module.exports = { studentRecords, recordEdit };
+// ---------- تحضير عدة طلاب دفعة واحدة (نفس قواعد الحضور الفردي) ----------
+const bulkAttendance = express.Router();
+bulkAttendance.use(requireAuth);
+bulkAttendance.post('/', async (req, res, next) => {
+  try {
+    const ids = [...new Set((Array.isArray(req.body?.studentIds) ? req.body.studentIds : []).map(String))];
+    if (!ids.length || ids.length > 200 || !ids.every((i) => mongoose.isValidObjectId(i))) return res.status(400).json({ error: 'اختر طالباً واحداً على الأقل' });
+    const status = req.body?.status;
+    if (!['present', 'absent'].includes(status)) return res.status(400).json({ error: 'اختر حاضر أو غائب' });
+    const date = req.body?.date || todayStr();
+    const dErr = checkDate(req.user, date);
+    if (dErr) return res.status(400).json({ error: dErr });
+
+    // العزل: المعلم لا يحضّر إلا طلابه النشطين
+    const students = await Student.find({ _id: { $in: ids }, status: 'active', ...studentScope(req.user) });
+    if (!students.length) return res.status(400).json({ error: 'لا يوجد طلاب صالحون للتحضير' });
+    const existing = await Attendance.find({ studentId: { $in: students.map((s) => s._id) }, date });
+    const em = new Map(existing.map((a) => [String(a.studentId), a]));
+
+    const done = [], skipped = [];
+    for (const s of students) {
+      const ex = em.get(String(s._id));
+      try {
+        if (ex) {
+          if (!canEditRecord(req.user, ex)) { skipped.push(s.name); continue; } // سجل معلم آخر لنفس اليوم
+          if (ex.status !== status) { ex.status = status; ex.updatedBy = req.user._id; await ex.save(); }
+        } else {
+          await Attendance.create({ studentId: s._id, date, status, createdBy: req.user._id });
+        }
+        done.push(s);
+      } catch (e) {
+        if (e.code === 11000) skipped.push(s.name); else throw e;
+      }
+    }
+    await audit(req, 'attendance.bulk', { targetType: 'student', target: { name: `${done.length} طالب` }, details: { date, status, students: done.map((s) => s.name) } });
+    if (status === 'absent') for (const s of done) await absenceAlert(s);
+    res.json({ done: done.map((s) => String(s._id)), skipped, ignored: ids.length - students.length });
+  } catch (err) { next(err); }
+});
+
+module.exports = { studentRecords, recordEdit, bulkAttendance };

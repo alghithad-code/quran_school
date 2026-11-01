@@ -3,6 +3,7 @@ const express = require('express');
 const mongoose = require('mongoose');
 const { z } = require('zod');
 const User = require('../models/User');
+const { Student, Level } = require('../models');
 const { requireAuth, requireRole } = require('../middleware/auth');
 const { audit } = require('../utils/audit');
 const { normalizeSaudiPhone, whatsappLink } = require('../utils/phone');
@@ -28,6 +29,26 @@ function present(u) {
   const o = u.toPublic();
   o.whatsapp = whatsappLink(u.phone);
   return o;
+}
+
+// يضيف للمعلمين: عدد الطلاب النشطين والمستويات المرتبطة
+async function decorate(users) {
+  const teachers = users.filter((u) => u.role === 'teacher');
+  const counts = teachers.length
+    ? await Student.aggregate([{ $match: { teacherId: { $in: teachers.map((t) => t._id) }, status: 'active' } }, { $group: { _id: '$teacherId', n: { $sum: 1 } } }])
+    : [];
+  const cm = Object.fromEntries(counts.map((c) => [String(c._id), c.n]));
+  const lids = [...new Set(teachers.flatMap((t) => t.levelIds.map(String)))];
+  const lv = lids.length ? await Level.find({ _id: { $in: lids } }).select('name order').lean() : [];
+  const lm = Object.fromEntries(lv.map((l) => [String(l._id), l]));
+  return users.map((u) => {
+    const o = present(u);
+    if (u.role === 'teacher') {
+      o.studentCount = cm[String(u._id)] || 0;
+      o.levels = u.levelIds.map((id) => lm[String(id)]).filter(Boolean).sort((a, b) => a.order - b.order).map((l) => ({ id: String(l._id), name: l.name }));
+    }
+    return o;
+  });
 }
 
 const username = z
@@ -70,7 +91,7 @@ router.get('/', async (req, res, next) => {
       User.find(filter).sort({ name: 1 }).skip((page - 1) * limit).limit(limit),
       User.countDocuments(filter),
     ]);
-    res.json({ items: items.map(present), total, page, pages: Math.ceil(total / limit) });
+    res.json({ items: await decorate(items), total, page, pages: Math.ceil(total / limit) });
   } catch (err) {
     next(err);
   }
@@ -121,7 +142,7 @@ async function loadTarget(req, res) {
 router.get('/:id', async (req, res, next) => {
   try {
     const target = await loadTarget(req, res);
-    if (target) res.json({ user: present(target) });
+    if (target) res.json({ user: (await decorate([target]))[0] });
   } catch (err) {
     next(err);
   }
