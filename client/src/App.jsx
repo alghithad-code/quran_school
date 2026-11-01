@@ -6,6 +6,8 @@ import Home from './pages/Home.jsx';
 import Users from './pages/Users.jsx';
 import Teachers from './pages/Teachers.jsx';
 import TeacherDetail from './pages/TeacherDetail.jsx';
+import Groups from './pages/Groups.jsx';
+import GroupDetail from './pages/GroupDetail.jsx';
 import Students from './pages/Students.jsx';
 import StudentDetail from './pages/StudentDetail.jsx';
 import Levels from './pages/Levels.jsx';
@@ -16,7 +18,7 @@ import Audit from './pages/Audit.jsx';
 import Admin from './pages/Admin.jsx';
 import More from './pages/More.jsx';
 
-const TITLES = { '': 'الرئيسية', students: 'الطلاب', users: 'المشرفون', teachers: 'المعلمون', levels: 'المستويات', promotions: 'طلبات الترقية', reports: 'التقارير', notifications: 'الإشعارات', audit: 'سجل العمليات', admin: 'الإعدادات والنسخ', more: 'حسابي' };
+const TITLES = { '': 'الرئيسية', students: 'الطلاب', users: 'المشرفون والمديرون', teachers: 'المعلمون', groups: 'المجموعات', levels: 'المستويات', promotions: 'طلبات الترقية', reports: 'التقارير', notifications: 'الإشعارات', audit: 'سجل العمليات', admin: 'الإعدادات والنسخ', more: 'حسابي' };
 
 export default function App() {
   const [user, setUser] = useState(null);
@@ -63,6 +65,7 @@ export default function App() {
     case 'students': page = seg[1] ? <StudentDetail key={seg[1]} id={seg[1]} me={user} online={online} /> : <Students me={user} online={online} query={query} />; break;
     case 'teachers': page = isManager ? (seg[1] ? <TeacherDetail key={seg[1]} id={seg[1]} me={user} online={online} /> : <Teachers online={online} query={query} />) : <Home user={user} />; break;
     case 'users': page = user.role === 'admin' ? <Users me={user} online={online} query={query} /> : <Home user={user} />; break;
+    case 'groups': page = seg[1] ? <GroupDetail key={seg[1]} id={seg[1]} me={user} online={online} /> : <Groups me={user} online={online} />; break;
     case 'levels': page = isManager ? <Levels online={online} /> : <Home user={user} />; break;
     case 'promotions': page = <Promotions me={user} online={online} />; break;
     case 'reports': page = <Reports me={user} query={query} />; break;
@@ -77,8 +80,9 @@ export default function App() {
     ['', 'home', 'الرئيسية'],
     ['students', 'book', 'الطلاب'],
     isManager && ['teachers', 'users', 'المعلمون'],
-    user.role === 'admin' && ['users', 'user', 'المشرفون'],
+    user.role === 'admin' && ['users', 'user', 'المشرفون والمديرون'],
     isManager && ['levels', 'layers', 'المستويات'],
+    ['groups', 'grid', 'المجموعات'],
     ['promotions', 'up', 'طلبات الترقية'],
     ['reports', 'chart', 'التقارير'],
     ['notifications', 'bell', 'الإشعارات'],
@@ -118,8 +122,8 @@ export default function App() {
           <nav className="bottom noprint">
             <button className={key === '' ? 'on' : ''} onClick={() => go('/')}><Icon name="home" /><span>الرئيسية</span></button>
             <button className={key === 'students' ? 'on' : ''} onClick={() => go('/students')}><Icon name="book" /><span>الطلاب</span></button>
-            <button className={key === 'notifications' ? 'on' : ''} onClick={() => go('/notifications')}><Icon name="bell" /><span>الإشعارات</span>{unread > 0 && <i className="badge">{unread > 99 ? '99+' : unread}</i>}</button>
-            <button onClick={() => setOpen(true)}><Icon name="menu" /><span>القائمة</span></button>
+            {isManager && <button className={key === 'teachers' ? 'on' : ''} onClick={() => go('/teachers')}><Icon name="users" /><span>المعلمون</span></button>}
+            <button className={key === 'groups' ? 'on' : ''} onClick={() => go('/groups')}><Icon name="grid" /><span>المجموعات</span></button>
           </nav>
         </div>
       </div>

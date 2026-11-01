@@ -73,7 +73,7 @@ export const ACTION_AR = {
   'user.create': 'إنشاء حساب', 'user.update': 'تعديل حساب', 'user.suspend': 'إيقاف حساب', 'user.activate': 'تنشيط حساب', 'user.reset_password': 'إعادة تعيين كلمة مرور', 'user.change_password': 'تغيير كلمة المرور',
   'student.create': 'إضافة طالب', 'student.update': 'تعديل طالب', 'student.status': 'تغيير حالة طالب', 'student.schedule': 'تعديل جدول طالب', 'student.transfer': 'نقل طالب', 'student.transfer_bulk': 'نقل جماعي',
   'student.level_assign': 'تعيين مستوى', 'student.level_promotion': 'ترقية طالب', 'student.level_demotion': 'خفض مستوى طالب',
-  'attendance.create': 'تسجيل حضور', 'attendance.bulk': 'تحضير جماعي', 'attendance.update': 'تعديل حضور', 'recitation.create': 'تسجيل حفظ/مراجعة', 'recitation.update': 'تعديل حفظ/مراجعة', 'note.create': 'إضافة ملاحظة', 'note.update': 'تعديل ملاحظة',
+  'attendance.create': 'تسجيل حضور', 'attendance.bulk': 'تحضير جماعي', 'group.create': 'إضافة مجموعة', 'group.update': 'تعديل مجموعة', 'group.delete': 'حذف مجموعة', 'group.members': 'تعديل أعضاء مجموعة', 'attendance.update': 'تعديل حضور', 'recitation.create': 'تسجيل حفظ/مراجعة', 'recitation.update': 'تعديل حفظ/مراجعة', 'note.create': 'إضافة ملاحظة', 'note.update': 'تعديل ملاحظة',
   'level.create': 'إضافة مستوى', 'level.update': 'تعديل مستوى', 'level.delete': 'حذف مستوى', 'level.reorder': 'ترتيب المستويات', 'level.assign_teacher': 'ربط معلم بمستويات',
   'promotion.request': 'طلب ترقية', 'promotion.approve': 'قبول ترقية', 'promotion.reject': 'رفض ترقية',
   'settings.update': 'تعديل الإعدادات', 'backup.create': 'إنشاء نسخة احتياطية', 'backup.download': 'تنزيل نسخة', 'backup.upload': 'رفع نسخة', 'audit.cleanup': 'تنظيف سجل العمليات',
@@ -96,6 +96,20 @@ export function fmtTime(t) {
   return `${h % 12 || 12}:${String(m).padStart(2, '0')} ${h >= 12 ? 'م' : 'ص'}`;
 }
 export const initial = (name) => Array.from(String(name || '?').trim())[0] || '?';
+
+export const GOAL_AR = { full_review: 'مراجعة كاملة', surah_review: 'مراجعة سور محددة', tajweed: 'تحسين التجويد', custom: 'هدف آخر' };
+export function goalText(g) { return g.goalText ? `${GOAL_AR[g.goalType]}: ${g.goalText}` : GOAL_AR[g.goalType]; }
+
+// شريط تقدّم: pct من 0 إلى 100
+export function Progress({ pct, label, thin = false }) {
+  const v = Math.max(0, Math.min(100, pct || 0));
+  return (
+    <div className={'prog' + (thin ? ' thin' : '')}>
+      <div className="pbar" role="progressbar" aria-valuenow={v} aria-valuemin="0" aria-valuemax="100"><i style={{ width: v + '%' }} /></div>
+      {label && <small className="muted">{label}</small>}
+    </div>
+  );
+}
 
 export const linkTo = (l) => (l ? '#' + l : '#/');
 
@@ -121,6 +135,7 @@ const ICONS = {
   lock: ['M19 11H5a2 2 0 0 0-2 2v7a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7a2 2 0 0 0-2-2z', 'M7 11V7a5 5 0 0 1 10 0v4'],
   check: ['M20 6L9 17l-5-5'],
   moon: ['M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z'],
+  grid: ['M3 3h7v7H3z', 'M14 3h7v7h-7z', 'M14 14h7v7h-7z', 'M3 14h7v7H3z'],
   trash: ['M3 6h18', 'M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6', 'M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2', 'M10 11v6', 'M14 11v6'],
   edit: ['M17 3a2.83 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z'],
   file: ['M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z', 'M14 2v6h6', 'M16 13H8', 'M16 17H8', 'M10 9H8'],
