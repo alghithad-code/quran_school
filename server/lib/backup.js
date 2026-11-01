@@ -12,7 +12,7 @@ const gunzip = promisify(zlib.gunzip);
 const { EJSON } = mongoose.mongo.BSON;
 
 // المجموعات المشمولة. لا تدخل الجلسات ولا سجلات النسخ نفسها.
-const MODELS = [User, AuditLog, M.Level, M.Student, M.Attendance, M.Recitation, M.Note, M.Transfer, M.LevelChange, M.PromotionRequest, M.Notification, M.Setting];
+const MODELS = [User, AuditLog, M.Level, M.Group, M.Student, M.Attendance, M.Recitation, M.Note, M.Transfer, M.LevelChange, M.PromotionRequest, M.Notification, M.Setting];
 const names = () => MODELS.map((m) => m.collection.name);
 const bucket = () => new mongoose.mongo.GridFSBucket(mongoose.connection.db, { bucketName: 'backups' });
 
@@ -72,7 +72,9 @@ function parseBackup(buf) {
   let payload;
   try { payload = EJSON.parse(zlib.gunzipSync(buf).toString('utf8'), { relaxed: false }); } catch { throw new Error('ملف النسخة تالف أو غير مدعوم'); }
   if (payload?.format !== 'quran-school-backup' || payload.version !== 1 || !payload.data) throw new Error('هذا الملف ليس نسخة احتياطية لهذا النظام');
+  const OPTIONAL = new Set([M.Group.collection.name]); // مجموعات أُضيفت لاحقاً: النسخ الأقدم لا تحويها
   for (const n of names()) {
+    if (OPTIONAL.has(n) && payload.data[n] === undefined) { payload.data[n] = []; payload.counts = { ...payload.counts, [n]: 0 }; }
     const docs = payload.data[n];
     if (!Array.isArray(docs) || docs.length !== payload.counts?.[n]) throw new Error(`النسخة ناقصة أو غير متسقة (${n})`);
     if (!docs.every((d) => d && d._id)) throw new Error(`سجلات غير صالحة في (${n})`);
