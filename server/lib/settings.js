@@ -12,6 +12,7 @@ const DEFAULTS = {
   auditRetentionDays: 365,
   absenceThreshold: 3, // عدد أيام الغياب المتتالية لإرسال تنبيه
   backupKeep: 8, // عدد النسخ التلقائية المحتفظ بها
+  teachersCanAddStudents: false, // يشغّله ويوقفه مدير النظام فقط
   lastAuditCleanupAt: null,
 };
 
