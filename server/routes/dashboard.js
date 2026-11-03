@@ -1,17 +1,15 @@
 const express = require('express');
-const { Student, Attendance, Recitation, Level, PromotionRequest, Transfer, Notification } = require('../models');
+const { Student, Enrollment, Attendance, Recitation, Level, PromotionRequest, Transfer, Notification } = require('../models');
 const User = require('../models/User');
 const { requireAuth } = require('../middleware/auth');
-const { isManager } = require('../lib/access');
-const { buildStudentQuery } = require('../lib/studentFilters');
+const { isManager, enrollmentScope } = require('../lib/access');
+const { countStudents } = require('../lib/studentFilters');
 const { getSettings, scoreMap } = require('../lib/settings');
 const { pct, avg } = require('../lib/stats');
-const { todayStr, addDays } = require('../utils/dates');
+const { todayStr, addDays, weekday } = require('../utils/dates');
 
 const router = express.Router();
 router.use(requireAuth);
-
-const count = async (user, q) => Student.countDocuments(await buildStudentQuery(user, q));
 
 router.get('/', async (req, res, next) => {
   try {
@@ -20,17 +18,18 @@ router.get('/', async (req, res, next) => {
     const notifications = latestNotifs.map((n) => ({ id: n._id, title: n.title, body: n.body, link: n.link, read: n.read, at: n.createdAt }));
 
     if (!isManager(u)) {
-      const [students, present, absent, noEval, todayList, pending] = await Promise.all([
-        count(u, {}), count(u, { filter: 'present_today' }), count(u, { filter: 'absent_today' }), count(u, { filter: 'no_eval_today' }),
-        Student.find(await buildStudentQuery(u, { today: '1' })).sort({ 'schedule.arrivalTime': 1, name: 1 }).limit(50).select('name schedule').lean(),
+      const [students, present, absent, noEval, todayEnr, pending] = await Promise.all([
+        countStudents(u, {}), countStudents(u, { filter: 'present_today' }), countStudents(u, { filter: 'absent_today' }), countStudents(u, { filter: 'no_eval_today' }),
+        Enrollment.find({ ...enrollmentScope(u), status: 'active', 'schedule.days': weekday(today) }).sort({ 'schedule.arrivalTime': 1 }).limit(60).populate('studentId', 'name status').populate('levelId', 'name').lean(),
         PromotionRequest.countDocuments({ teacherId: u._id, status: 'pending' }),
       ]);
-      const att = await Attendance.find({ studentId: { $in: todayList.map((s) => s._id) }, date: today }).select('studentId status').lean();
-      const am = Object.fromEntries(att.map((a) => [String(a.studentId), a.status]));
+      const list = todayEnr.filter((e) => e.studentId?.status === 'active');
+      const att = await Attendance.find({ enrollmentId: { $in: list.map((e) => e._id) }, date: today }).select('enrollmentId status').lean();
+      const am = Object.fromEntries(att.map((a) => [String(a.enrollmentId), a.status]));
       return res.json({
         role: 'teacher',
         cards: { students, presentToday: present, absentToday: absent, noEvalToday: noEval, pendingPromotions: pending },
-        today: todayList.map((s) => ({ id: s._id, name: s.name, arrivalTime: s.schedule?.arrivalTime, startTime: s.schedule?.startTime, endTime: s.schedule?.endTime, status: am[String(s._id)] || null })),
+        today: list.map((e) => ({ id: e._id, studentId: e.studentId._id, name: e.studentId.name, level: e.levelId?.name || null, arrivalTime: e.schedule?.arrivalTime, startTime: e.schedule?.startTime, endTime: e.schedule?.endTime, status: am[String(e._id)] || null })),
         notifications,
       });
     }
@@ -42,10 +41,10 @@ router.get('/', async (req, res, next) => {
       Student.countDocuments({ status: 'active' }),
       User.countDocuments({ role: 'teacher', status: 'active' }),
       User.countDocuments({ role: 'teacher', status: 'suspended' }),
-      count(u, { filter: 'present_today' }), count(u, { filter: 'absent_today' }),
-      count(u, { filter: 'no_eval_today' }), count(u, { filter: 'frequent_absent' }),
+      countStudents(u, { filter: 'present_today' }), countStudents(u, { filter: 'absent_today' }),
+      countStudents(u, { filter: 'no_eval_today' }), countStudents(u, { filter: 'frequent_absent' }),
       PromotionRequest.countDocuments({ status: 'pending' }),
-      Student.aggregate([{ $match: { status: 'active' } }, { $group: { _id: '$levelId', n: { $sum: 1 } } }]),
+      Enrollment.aggregate([{ $match: { status: 'active' } }, { $group: { _id: '$levelId', n: { $sum: 1 } } }]),
       Level.find().sort({ order: 1 }).select('name').lean(),
       Transfer.find().sort({ createdAt: -1 }).limit(5).populate('studentId', 'name').populate('fromTeacherId toTeacherId', 'name').lean(),
       Recitation.find({ date: { $gte: monthFrom, $lte: today }, grade: { $ne: null } }).select('type grade').lean(),

@@ -1,7 +1,7 @@
 const express = require('express');
 const mongoose = require('mongoose');
 const { z } = require('zod');
-const { Level, Student } = require('../models');
+const { Level, Enrollment } = require('../models');
 const User = require('../models/User');
 const { requireAuth, requireRole } = require('../middleware/auth');
 const { isManager } = require('../lib/access');
@@ -17,7 +17,7 @@ router.get('/', async (req, res, next) => {
     const levels = await Level.find().sort({ order: 1, createdAt: 1 }).lean();
     if (!isManager(req.user)) return res.json({ items: levels.map((l) => ({ id: l._id, name: l.name, order: l.order, surahs: l.surahs || [] })) });
     const [counts, teachers] = await Promise.all([
-      Student.aggregate([{ $match: { status: 'active' } }, { $group: { _id: '$levelId', n: { $sum: 1 } } }]),
+      Enrollment.aggregate([{ $match: { status: 'active' } }, { $group: { _id: '$levelId', n: { $sum: 1 } } }]),
       User.find({ role: 'teacher', levelIds: { $exists: true, $ne: [] } }).select('name levelIds status').lean(),
     ]);
     const cm = Object.fromEntries(counts.map((c) => [String(c._id), c.n]));
@@ -99,7 +99,7 @@ router.delete('/:id', manager, async (req, res, next) => {
     if (!isId(req.params.id)) return res.status(404).json({ error: 'غير موجود' });
     const level = await Level.findById(req.params.id);
     if (!level) return res.status(404).json({ error: 'غير موجود' });
-    if ((await Student.exists({ levelId: level._id })) || (await User.exists({ levelIds: level._id }))) {
+    if ((await Enrollment.exists({ levelId: level._id })) || (await User.exists({ levelIds: level._id }))) {
       return res.status(400).json({ error: 'لا يمكن حذف مستوى مرتبط بطلاب أو معلمين. انقلهم أولاً.' });
     }
     await level.deleteOne();

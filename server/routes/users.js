@@ -3,7 +3,7 @@ const express = require('express');
 const mongoose = require('mongoose');
 const { z } = require('zod');
 const User = require('../models/User');
-const { Student, Level } = require('../models');
+const { Enrollment, Level } = require('../models');
 const { requireAuth, requireRole } = require('../middleware/auth');
 const { audit } = require('../utils/audit');
 const { normalizeSaudiPhone, whatsappLink } = require('../utils/phone');
@@ -35,7 +35,11 @@ function present(u) {
 async function decorate(users) {
   const teachers = users.filter((u) => u.role === 'teacher');
   const counts = teachers.length
-    ? await Student.aggregate([{ $match: { teacherId: { $in: teachers.map((t) => t._id) }, status: 'active' } }, { $group: { _id: '$teacherId', n: { $sum: 1 } } }])
+    ? await Enrollment.aggregate([
+      { $match: { teacherId: { $in: teachers.map((t) => t._id) }, status: 'active' } },
+      { $group: { _id: '$teacherId', s: { $addToSet: '$studentId' } } },
+      { $project: { n: { $size: '$s' } } },
+    ])
     : [];
   const cm = Object.fromEntries(counts.map((c) => [String(c._id), c.n]));
   const lids = [...new Set(teachers.flatMap((t) => t.levelIds.map(String)))];

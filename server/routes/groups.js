@@ -1,7 +1,7 @@
 const express = require('express');
 const mongoose = require('mongoose');
 const { z } = require('zod');
-const { Group, Student } = require('../models');
+const { Group, Student, Enrollment } = require('../models');
 const User = require('../models/User');
 const { requireAuth, requireRole } = require('../middleware/auth');
 const { isManager } = require('../lib/access');
@@ -75,14 +75,21 @@ router.get('/:id', async (req, res, next) => {
   try {
     const g = await loadGroup(req, res);
     if (!g) return;
-    const students = await Student.find({ _id: { $in: g.studentIds } }).populate('teacherId', 'name').populate('levelId', 'name').sort({ name: 1 }).lean();
+    const students = await Student.find({ _id: { $in: g.studentIds } }).sort({ name: 1 }).lean();
+    const enrs = await Enrollment.find({ studentId: { $in: g.studentIds }, status: 'active' }).populate('teacherId', 'name').populate('levelId', 'name').lean();
+    const by = new Map();
+    enrs.forEach((e) => { const k = String(e.studentId); (by.get(k) || by.set(k, []).get(k)).push(e); });
+    const uniq = (a) => [...new Set(a.filter(Boolean))].join('، ') || null;
     await g.populate('teacherIds', 'name status');
     res.json({
       group: present(g),
-      members: students.map((s) => ({
-        id: String(s._id), name: s.name, status: s.status, level: s.levelId?.name || null, teacher: s.teacherId?.name || null,
-        canOpen: isManager(req.user) || String(s.teacherId?._id) === String(req.user._id), // المعلم يفتح ملف طلابه فقط
-      })),
+      members: students.map((s) => {
+        const list = by.get(String(s._id)) || [];
+        return {
+          id: String(s._id), name: s.name, status: s.status, level: uniq(list.map((e) => e.levelId?.name)), teacher: uniq(list.map((e) => e.teacherId?.name)),
+          canOpen: isManager(req.user) || list.some((e) => String(e.teacherId?._id) === String(req.user._id)), // المعلم يفتح ملف من عنده تسجيل له فقط
+        };
+      }),
     });
   } catch (e) { next(e); }
 });
