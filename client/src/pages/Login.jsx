@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { api } from '../api.js';
-import { Logo } from '../ui.jsx';
+import { Logo, PasswordInput } from '../ui.jsx';
 
 export default function Login({ onLogin, online }) {
   const [username, setUsername] = useState('');
@@ -26,7 +26,7 @@ export default function Login({ onLogin, online }) {
         <p className="muted">تسجيل الدخول</p>
         {!online && <div className="alert">لا يوجد اتصال بالإنترنت</div>}
         <label>اسم المستخدم<input dir="ltr" autoComplete="username" value={username} onChange={(e) => setUsername(e.target.value)} required /></label>
-        <label>كلمة المرور<input dir="ltr" type="password" autoComplete="current-password" value={password} onChange={(e) => setPassword(e.target.value)} required /></label>
+        <label>كلمة المرور<PasswordInput autoComplete="current-password" value={password} onChange={(e) => setPassword(e.target.value)} required /></label>
         {error && <div className="alert">{error}</div>}
         <button className="btn block" disabled={busy || !online}>{busy ? 'جارٍ الدخول…' : 'دخول'}</button>
       </form>

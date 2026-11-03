@@ -67,8 +67,8 @@ export default function Home({ user }) {
             <h3>طلاب اليوم حسب المواعيد</h3>
             {data.today.length === 0 && <Empty text="لا يوجد طلاب موعدهم اليوم. حدّد أيام الحضور من جدول كل طالب." />}
             {data.today.map((s) => (
-              <a key={s.id} className="line" href={`#/students/${s.id}`}>
-                <span>{s.name}<small className="muted"> · {s.arrivalTime || 'بلا وقت'}{s.startTime ? ` · تسميع ${s.startTime}` : ''}</small></span>
+              <a key={s.id} className="line" href={`#/students/${s.studentId}`}>
+                <span>{s.name}<small className="muted"> · {s.level || 'بلا مستوى'} · {s.arrivalTime || 'بلا وقت'}{s.startTime ? ` · تسميع ${s.startTime}` : ''}</small></span>
                 {s.status && <span className={'tag ' + (s.status === 'present' ? 'ok' : 'bad')}>{s.status === 'present' ? 'حاضر' : 'غائب'}</span>}
               </a>
             ))}

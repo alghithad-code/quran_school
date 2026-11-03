@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { api } from '../api.js';
-import { Empty, Icon, IconBtn, Loading, Modal, initial, qs, useFlash } from '../ui.jsx';
+import { Empty, Icon, IconBtn, Loading, Modal, PasswordInput, initial, qs, useFlash } from '../ui.jsx';
 import { useTeacherTools } from '../teacherTools.jsx';
 
 export default function Teachers({ online, query }) {
@@ -57,7 +57,7 @@ export default function Teachers({ online, query }) {
             <label>الاسم<input value={form.name} onChange={set('name')} required /></label>
             <label>اسم المستخدم<input dir="ltr" value={form.username} onChange={set('username')} required /></label>
             <label>رقم الجوال (اختياري)<input dir="ltr" inputMode="tel" placeholder="05XXXXXXXX" value={form.phone} onChange={set('phone')} /></label>
-            <label>كلمة المرور (6 أحرف على الأقل، حروف وأرقام)<input dir="ltr" type="password" minLength={6} value={form.password} onChange={set('password')} required /></label>
+            <label>كلمة المرور (6 أحرف على الأقل، حروف وأرقام)<PasswordInput minLength={6} value={form.password} onChange={set('password')} required /></label>
             <button className="btn block" disabled={busy}>{busy ? 'جارٍ الحفظ…' : 'حفظ'}</button>
           </form>
         </Modal>

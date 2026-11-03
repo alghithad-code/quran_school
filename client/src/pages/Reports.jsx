@@ -81,7 +81,7 @@ export default function Reports({ me, query }) {
         {type === 'student' && !id && (
           <>
             <label>ابحث عن طالب<input value={text} onChange={(e) => setText(e.target.value)} placeholder="اكتب حرفين على الأقل" /></label>
-            {found.map((s) => <button key={s.id} className="card line" style={{ width: '100%' }} onClick={() => nav({ id: s.id })}><span>{s.name}</span><small className="muted">{s.level?.name || ''}</small></button>)}
+            {found.map((s) => <button key={s.id} className="card line" style={{ width: '100%' }} onClick={() => nav({ id: s.id })}><span>{s.name}</span><small className="muted">{s.enrollments.map((e) => e.level?.name).filter(Boolean).join('، ')}</small></button>)}
           </>
         )}
         {type === 'student' && id && <IconBtn icon="repeat" caption="اختيار طالب آخر" label="اختيار طالب آخر" onClick={() => nav({ id: '' })} />}

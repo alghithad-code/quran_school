@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { api } from '../api.js';
-import { Empty, IconBtn, Loading, Modal, ROLE_AR, initial, qs, useFlash } from '../ui.jsx';
+import { Empty, IconBtn, Loading, Modal, PasswordInput, ROLE_AR, initial, qs, useFlash } from '../ui.jsx';
 
 const empty = { name: '', username: '', phone: '', password: '', role: 'supervisor' };
 const ADD = { supervisor: 'مشرف', admin: 'مدير' };
@@ -68,7 +68,7 @@ export default function Users({ me, online, query }) {
             <label>الاسم<input value={form.name} onChange={set(setForm)('name')} required /></label>
             <label>اسم المستخدم<input dir="ltr" value={form.username} onChange={set(setForm)('username')} required /></label>
             <label>رقم الجوال (اختياري)<input dir="ltr" inputMode="tel" placeholder="05XXXXXXXX" value={form.phone} onChange={set(setForm)('phone')} /></label>
-            <label>كلمة المرور (6 أحرف على الأقل، حروف وأرقام)<input dir="ltr" type="password" minLength={6} value={form.password} onChange={set(setForm)('password')} required /></label>
+            <label>كلمة المرور (6 أحرف على الأقل، حروف وأرقام)<PasswordInput minLength={6} value={form.password} onChange={set(setForm)('password')} required /></label>
             <button className="btn block" disabled={busy}>{busy ? 'جارٍ الحفظ…' : 'حفظ'}</button>
           </form>
         </Modal>

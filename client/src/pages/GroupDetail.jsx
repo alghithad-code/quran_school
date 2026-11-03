@@ -27,7 +27,7 @@ function AddMembers({ groupId, existing, onDone, onClose }) {
           return (
             <label key={s.id} className="check" style={{ padding: '6px 0', opacity: inGroup ? 0.5 : 1 }}>
               <input type="checkbox" disabled={inGroup} checked={inGroup || sel.has(s.id)} onChange={(e) => setSel((p) => { const n = new Set(p); e.target.checked ? n.add(s.id) : n.delete(s.id); return n; })} />
-              <span>{s.name}<small className="muted"> · {s.level?.name || 'بلا مستوى'} · {s.teacher.name}{inGroup ? ' · مضاف' : ''}</small></span>
+              <span>{s.name}<small className="muted"> · {s.enrollments.map((e) => e.level?.name || 'بلا مستوى').join('، ') || 'بلا تسجيل'}{inGroup ? ' · مضاف' : ''}</small></span>
             </label>
           );
         })}

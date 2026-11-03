@@ -4,6 +4,7 @@ import { Empty, FILTER_AR, Icon, IconBtn, Loading, Modal, Progress, STATUS_AR, f
 
 const blank = { name: '', age: '', phone: '', enrolledAt: todayStr(), teacherId: '', levelId: '', position: '', notes: '' };
 
+// بطاقة لكل طالب تضم تسجيلاته (مستوياته). الحضور والتحديد على مستوى التسجيل.
 // embedded: تُستخدم داخل صفحة المعلم (الفلاتر محلية ولا تغيّر العنوان)
 export default function Students({ me, online, query, embedded = false, onFilter }) {
   const isManager = me.role !== 'teacher';
@@ -15,11 +16,12 @@ export default function Students({ me, online, query, embedded = false, onFilter
   const [data, setData] = useState({ items: null, total: 0, pages: 1 });
   const [teachers, setTeachers] = useState([]);
   const [levels, setLevels] = useState([]);
-  const [sel, setSel] = useState(new Set());
+  const [sel, setSel] = useState(new Set()); // معرّفات التسجيلات المحددة
   const [form, setForm] = useState(null);
-  const [edit, setEdit] = useState(null);
+  const [editS, setEditS] = useState(null); // تعديل بيانات الطالب (للمشرف)
+  const [editE, setEditE] = useState(null); // تعديل موضع الحفظ/ملاحظات تسجيل
   const [move, setMove] = useState(null);
-  const [grp, setGrp] = useState(null); // إضافة المحدد إلى مجموعة
+  const [grp, setGrp] = useState(null);
   const [busy, setBusy] = useState(false);
   const flash = useFlash();
   const key = JSON.stringify(query);
@@ -41,43 +43,48 @@ export default function Students({ me, online, query, embedded = false, onFilter
   const setFilter = (k, v) => (onFilter ? onFilter(k, v) : go('/students' + qs({ ...query, [k]: v })));
   const set = (k) => (e) => setForm((f) => ({ ...f, [k]: e.target.value }));
   const items = data.items;
+  const patchEnr = (ids, status) => setData((d) => ({ ...d, items: d.items.map((s) => ({ ...s, enrollments: s.enrollments.map((e) => (ids.has(e.id) ? { ...e, today: status } : e)) })) }));
 
-  async function mark(s, status) {
+  async function mark(e, status) {
     try {
-      await api(`/students/${s.id}/attendance`, { method: 'POST', body: { status } });
-      setData((d) => ({ ...d, items: d.items.map((x) => (x.id === s.id ? { ...x, today: status } : x)) })); // بعد تأكيد الخادم
-    } catch (e) { flash.err(e); }
+      await api(`/enrollments/${e.id}/attendance`, { method: 'POST', body: { status } });
+      patchEnr(new Set([e.id]), status); // بعد تأكيد الخادم
+    } catch (er) { flash.err(er); }
   }
-  // تحضير المحدد دفعة واحدة
   async function bulk(status) {
     setBusy(true); flash.clear();
     try {
-      const r = await api('/attendance/bulk', { method: 'POST', body: { studentIds: [...sel], status } });
-      const done = new Set(r.done);
-      setData((d) => ({ ...d, items: d.items.map((x) => (done.has(x.id) ? { ...x, today: status } : x)) }));
-      let msg = `تم تسجيل ${status === 'present' ? 'حضور' : 'غياب'} ${r.done.length} طالب`;
+      const r = await api('/attendance/bulk', { method: 'POST', body: { enrollmentIds: [...sel], status } });
+      patchEnr(new Set(r.done), status);
+      let msg = `تم تسجيل ${status === 'present' ? 'حضور' : 'غياب'} ${r.done.length} تسجيل`;
       if (r.skipped.length) msg += ` — تعذّر ${r.skipped.length} (سجلهم لمعلم آخر): ${r.skipped.slice(0, 3).join('، ')}`;
-      flash.ok(msg);
-      setSel(new Set());
-    } catch (e) { flash.err(e); } finally { setBusy(false); }
+      flash.ok(msg); setSel(new Set());
+    } catch (er) { flash.err(er); } finally { setBusy(false); }
   }
   async function create(e) {
     e.preventDefault(); setBusy(true);
     try { await api('/students', { method: 'POST', body: form }); flash.ok('تمت إضافة الطالب'); setForm(null); load(1); } catch (er) { flash.err(er); } finally { setBusy(false); }
   }
-  async function saveEdit(e) {
+  async function saveStudent(e) {
     e.preventDefault(); setBusy(true);
     try {
-      const { id, name, age, phone, enrolledAt, position, notes } = edit;
-      await api('/students/' + id, { method: 'PATCH', body: isManager ? { name, age, phone, enrolledAt, position, notes } : { position, notes } });
-      flash.ok('تم حفظ التعديل'); setEdit(null); load(1);
+      const { id, name, age, phone, enrolledAt, notes } = editS;
+      await api('/students/' + id, { method: 'PATCH', body: { name, age, phone, enrolledAt, notes } });
+      flash.ok('تم حفظ التعديل'); setEditS(null); load(1);
+    } catch (er) { flash.err(er); } finally { setBusy(false); }
+  }
+  async function saveEnrollment(e) {
+    e.preventDefault(); setBusy(true);
+    try {
+      await api('/enrollments/' + editE.id, { method: 'PATCH', body: { position: editE.position, notes: editE.notes } });
+      flash.ok('تم حفظ التعديل'); setEditE(null); load(1);
     } catch (er) { flash.err(er); } finally { setBusy(false); }
   }
   async function doMove() {
     setBusy(true);
     try {
-      const r = await api('/transfers', { method: 'POST', body: { studentIds: [...sel], toTeacherId: move.to } });
-      flash.ok(`تم نقل ${r.moved} طالب` + (r.skipped ? ` (تجاوز ${r.skipped} مرتبطاً بالمعلم نفسه)` : ''));
+      const r = await api('/transfers', { method: 'POST', body: { enrollmentIds: [...sel], toTeacherId: move.to } });
+      flash.ok(`تم نقل ${r.moved} تسجيل` + (r.skipped ? ` (تجاوز ${r.skipped} عند المعلم نفسه)` : ''));
       setMove(null); setSel(new Set()); load(1);
     } catch (er) { flash.err(er); } finally { setBusy(false); }
   }
@@ -87,15 +94,18 @@ export default function Students({ me, online, query, embedded = false, onFilter
   async function addToGroup() {
     setBusy(true);
     try {
-      const r = await api(`/groups/${grp.id}/members`, { method: 'POST', body: { add: [...sel] } });
-      flash.ok(`تمت إضافة ${sel.size} طالب. عدد طلاب المجموعة الآن ${r.studentCount}`);
+      const studentIds = [...new Set(selected.map((x) => x.student.id))];
+      const r = await api(`/groups/${grp.id}/members`, { method: 'POST', body: { add: studentIds } });
+      flash.ok(`تمت إضافة ${studentIds.length} طالب. عدد طلاب المجموعة الآن ${r.studentCount}`);
       setGrp(null); setSel(new Set());
     } catch (e) { flash.err(e); } finally { setBusy(false); }
   }
   const toggleSel = (id) => setSel((s) => { const n = new Set(s); n.has(id) ? n.delete(id) : n.add(id); return n; });
-  const selected = (items || []).filter((s) => sel.has(s.id));
-  const active = (items || []).filter((s) => s.status === 'active');
-  const allOn = active.length > 0 && active.every((s) => sel.has(s.id));
+
+  const markable = (s, e) => s.status === 'active' && e.status === 'active';
+  const allEnr = (items || []).flatMap((s) => s.enrollments.filter((e) => markable(s, e)).map((e) => ({ ...e, student: s })));
+  const selected = allEnr.filter((e) => sel.has(e.id));
+  const allOn = allEnr.length > 0 && allEnr.every((e) => sel.has(e.id));
   const teacherName = (id) => teachers.find((t) => t.id === id)?.name;
 
   return (
@@ -124,10 +134,10 @@ export default function Students({ me, online, query, embedded = false, onFilter
       </div>
       {flash.node}
 
-      {active.length > 0 && (
+      {allEnr.length > 0 && (
         <div className={sel.size ? 'bulkbar' : 'row'}>
           <div className="irow">
-            <IconBtn icon="check" tone="sel" on={allOn} label="تحديد الكل" caption={allOn ? 'إلغاء الكل' : 'تحديد الكل'} onClick={() => setSel(allOn ? new Set() : new Set(active.map((s) => s.id)))} />
+            <IconBtn icon="check" tone="sel" on={allOn} label="تحديد الكل" caption={allOn ? 'إلغاء الكل' : 'تحديد الكل'} onClick={() => setSel(allOn ? new Set() : new Set(allEnr.map((e) => e.id)))} />
             {sel.size > 0 && <span>{sel.size} محدد</span>}
           </div>
           {sel.size > 0 && (
@@ -150,19 +160,30 @@ export default function Students({ me, online, query, embedded = false, onFilter
             <a className="name" href={'#/students/' + s.id}>{s.name}</a>
             {s.status !== 'active' && <span className="tag bad">{STATUS_AR[s.status]}</span>}
           </div>
-          <div className="metas">
-            <span className="m"><Icon name="layers" size={14} />{s.level?.name || 'بلا مستوى'}</span>
-            {isManager && !embedded && <span className="m"><Icon name="user" size={14} />{s.teacher.name || '—'}</span>}
-            {s.schedule?.arrivalTime && <span className="m"><Icon name="moon" size={14} />يحضر {fmtTime(s.schedule.arrivalTime)}</span>}
-          </div>
-          {s.progress && <Progress thin pct={s.progress.pct} label={`تقدّم ${s.level?.name}: ${s.progress.pct}% (${s.progress.memorized} من ${s.progress.total} آية)`} />}
+
+          {s.enrollments.length === 0 && <div className="small muted">لا توجد تسجيلات ظاهرة لك</div>}
+          {s.enrollments.map((e) => (
+            <div className="enr" key={e.id}>
+              <div className="metas">
+                <span className="m"><Icon name="layers" size={14} />{e.level?.name || 'بلا مستوى'}</span>
+                {isManager && !embedded && <span className="m"><Icon name="user" size={14} />{e.teacher.name || '—'}</span>}
+                {e.schedule?.arrivalTime && <span className="m"><Icon name="clock" size={14} />يحضر {fmtTime(e.schedule.arrivalTime)}</span>}
+                {e.status !== 'active' && <span className="tag bad">منتهٍ</span>}
+              </div>
+              {e.progress && <Progress thin pct={e.progress.pct} label={`تقدّم ${e.level?.name}: ${e.progress.pct}% (${e.progress.memorized} من ${e.progress.total} آية)`} />}
+              <div className="irow">
+                {markable(s, e) && <IconBtn icon="check" tone="sel" on={sel.has(e.id)} label="تحديد" onClick={() => toggleSel(e.id)} />}
+                {markable(s, e) && <IconBtn icon="check" tone={e.today === 'present' ? 'on' : 'ok'} on={e.today === 'present'} caption="حاضر" label="تسجيل حضور" disabled={!online} onClick={() => mark(e, 'present')} />}
+                {markable(s, e) && <IconBtn icon="x" tone={e.today === 'absent' ? 'bad on' : 'danger'} on={e.today === 'absent'} caption="غائب" label="تسجيل غياب" disabled={!online} onClick={() => mark(e, 'absent')} />}
+                <IconBtn icon="edit" label="موضع الحفظ وملاحظات هذا المستوى" disabled={!online} onClick={() => setEditE({ id: e.id, name: s.name, level: e.level?.name, position: e.position, notes: e.notes })} />
+              </div>
+            </div>
+          ))}
+
           <div className="irow">
-            {s.status === 'active' && <IconBtn icon="check" tone="sel" on={sel.has(s.id)} label="تحديد" onClick={() => toggleSel(s.id)} />}
-            {s.status === 'active' && <IconBtn icon="check" tone={s.today === 'present' ? 'on' : 'ok'} on={s.today === 'present'} caption="حاضر" label="تسجيل حضور" disabled={!online} onClick={() => mark(s, 'present')} />}
-            {s.status === 'active' && <IconBtn icon="x" tone={s.today === 'absent' ? 'bad on' : 'danger'} on={s.today === 'absent'} caption="غائب" label="تسجيل غياب" disabled={!online} onClick={() => mark(s, 'absent')} />}
-            <IconBtn icon="file" label="ملف الطالب" href={'#/students/' + s.id} />
+            <IconBtn icon="file" label="ملف الطالب" caption="الملف" href={'#/students/' + s.id} />
             {s.whatsapp && <IconBtn icon="chat" tone="wa" label="واتساب" href={s.whatsapp} />}
-            <IconBtn icon="edit" label="تعديل" disabled={!online} onClick={() => setEdit({ id: s.id, name: s.name, age: s.age ?? '', phone: s.phone, enrolledAt: s.enrolledAt, position: s.position, notes: s.notes })} />
+            {isManager && <IconBtn icon="user" label="تعديل بيانات الطالب" disabled={!online} onClick={() => setEditS({ id: s.id, name: s.name, age: s.age ?? '', phone: s.phone, enrolledAt: s.enrolledAt, notes: s.notes })} />}
           </div>
         </div>
       ))}
@@ -174,29 +195,37 @@ export default function Students({ me, online, query, embedded = false, onFilter
             <label>الاسم<input value={form.name} onChange={set('name')} required /></label>
             {isManager ? (
               <label>المعلم<select value={form.teacherId} onChange={set('teacherId')} required><option value="">اختر المعلم</option>{teachers.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}</select></label>
-            ) : <p className="small muted">سيُضاف الطالب إلى طلابك.</p>}
+            ) : <p className="small muted">سيُسجَّل الطالب عندك.</p>}
             <label>المستوى<select value={form.levelId} onChange={set('levelId')}><option value="">بلا مستوى</option>{(isManager ? levels : levels.filter((l) => myLevels.includes(String(l.id)))).map((l) => <option key={l.id} value={l.id}>{l.name}</option>)}</select></label>
             <label>العمر<input type="number" inputMode="numeric" min="3" max="100" value={form.age} onChange={set('age')} /></label>
             <label>رقم الهاتف (اختياري)<input dir="ltr" inputMode="tel" placeholder="05XXXXXXXX" value={form.phone} onChange={set('phone')} /></label>
             <label>تاريخ الالتحاق<input type="date" max={todayStr()} value={form.enrolledAt} onChange={set('enrolledAt')} /></label>
             <label>موضع الحفظ الحالي<input value={form.position} onChange={set('position')} /></label>
             <label>ملاحظات<input value={form.notes} onChange={set('notes')} /></label>
+            <p className="small muted">لتسجيل الطالب في مستوى إضافي، افتح ملفه واضغط «مستوى».</p>
             <button className="btn block" disabled={busy}>{busy ? 'جارٍ الحفظ…' : 'حفظ'}</button>
           </form>
         </Modal>
       )}
 
-      {edit && (
-        <Modal title="تعديل الطالب" onClose={() => setEdit(null)}>
-          <form onSubmit={saveEdit}>
-            {isManager && (<>
-              <label>الاسم<input value={edit.name} onChange={(e) => setEdit({ ...edit, name: e.target.value })} required /></label>
-              <label>العمر<input type="number" min="3" max="100" value={edit.age} onChange={(e) => setEdit({ ...edit, age: e.target.value })} /></label>
-              <label>الهاتف<input dir="ltr" value={edit.phone} onChange={(e) => setEdit({ ...edit, phone: e.target.value })} /></label>
-              <label>تاريخ الالتحاق<input type="date" value={edit.enrolledAt} onChange={(e) => setEdit({ ...edit, enrolledAt: e.target.value })} /></label>
-            </>)}
-            <label>موضع الحفظ<input value={edit.position} onChange={(e) => setEdit({ ...edit, position: e.target.value })} /></label>
-            <label>ملاحظات<input value={edit.notes} onChange={(e) => setEdit({ ...edit, notes: e.target.value })} /></label>
+      {editS && (
+        <Modal title="تعديل بيانات الطالب" onClose={() => setEditS(null)}>
+          <form onSubmit={saveStudent}>
+            <label>الاسم<input value={editS.name} onChange={(e) => setEditS({ ...editS, name: e.target.value })} required /></label>
+            <label>العمر<input type="number" min="3" max="100" value={editS.age} onChange={(e) => setEditS({ ...editS, age: e.target.value })} /></label>
+            <label>الهاتف<input dir="ltr" value={editS.phone} onChange={(e) => setEditS({ ...editS, phone: e.target.value })} /></label>
+            <label>تاريخ الالتحاق<input type="date" value={editS.enrolledAt} onChange={(e) => setEditS({ ...editS, enrolledAt: e.target.value })} /></label>
+            <label>ملاحظات عامة<input value={editS.notes} onChange={(e) => setEditS({ ...editS, notes: e.target.value })} /></label>
+            <button className="btn block" disabled={busy}>حفظ</button>
+          </form>
+        </Modal>
+      )}
+
+      {editE && (
+        <Modal title={`${editE.name} — ${editE.level || 'بلا مستوى'}`} onClose={() => setEditE(null)}>
+          <form onSubmit={saveEnrollment}>
+            <label>موضع الحفظ<input value={editE.position} onChange={(e) => setEditE({ ...editE, position: e.target.value })} /></label>
+            <label>ملاحظات هذا المستوى<input value={editE.notes} onChange={(e) => setEditE({ ...editE, notes: e.target.value })} /></label>
             <button className="btn block" disabled={busy}>حفظ</button>
           </form>
         </Modal>
@@ -206,19 +235,19 @@ export default function Students({ me, online, query, embedded = false, onFilter
         <Modal title="إضافة إلى مجموعة" onClose={() => setGrp(null)}>
           {grp.list.length === 0 && <Empty text="لا توجد مجموعات. أنشئ مجموعة أولاً من صفحة المجموعات." />}
           <label>المجموعة<select value={grp.id} onChange={(e) => setGrp({ ...grp, id: e.target.value })}><option value="">اختر المجموعة</option>{grp.list.map((g) => <option key={g.id} value={g.id}>{g.name}</option>)}</select></label>
-          <p className="small muted">سيُضاف {sel.size} طالب. يبقون في مستوياتهم ومع معلميهم كما هم.</p>
+          <p className="small muted">سيُضاف الطلاب أصحاب التسجيلات المحددة. يبقون في مستوياتهم ومع معلميهم كما هم.</p>
           <button className="btn block" disabled={busy || !grp.id} onClick={addToGroup}>{busy ? 'جارٍ الإضافة…' : 'إضافة'}</button>
         </Modal>
       )}
 
       {move && (
-        <Modal title="نقل الطلاب" onClose={() => setMove(null)}>
+        <Modal title="نقل التسجيلات إلى معلم" onClose={() => setMove(null)}>
           <label>المعلم الجديد<select value={move.to} onChange={(e) => setMove({ to: e.target.value })}><option value="">اختر المعلم</option>{teachers.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}</select></label>
           {move.to && (
             <div className="card">
               <b>مراجعة قبل التأكيد</b>
-              <p className="small muted">سيُنقل {selected.length} طالب إلى «{teacherName(move.to)}»:</p>
-              {selected.map((s) => <div className="line" key={s.id}><span>{s.name}</span><small className="muted">من {s.teacher.name}</small></div>)}
+              <p className="small muted">سيُنقل {selected.length} تسجيل إلى «{teacherName(move.to)}» (ينتقل المستوى المحدد فقط، وبقية مستويات الطالب تبقى عند معلميها):</p>
+              {selected.map((e) => <div className="line" key={e.id}><span>{e.student.name}<small className="muted"> · {e.level?.name || 'بلا مستوى'}</small></span><small className="muted">من {e.teacher.name}</small></div>)}
               <p className="small muted">تبقى كل سجلاتهم السابقة كما هي، ويصل إشعار للمعلم الجديد.</p>
             </div>
           )}
