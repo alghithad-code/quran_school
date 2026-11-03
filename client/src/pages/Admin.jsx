@@ -21,7 +21,7 @@ export default function Admin({ online }) {
   }
   const saveSettings = (e) => {
     e.preventDefault();
-    run(() => api('/settings', { method: 'PATCH', body: { gradeScale: s.gradeScale, auditRetentionDays: s.auditRetentionDays, absenceThreshold: s.absenceThreshold, backupKeep: s.backupKeep } }), 'تم حفظ الإعدادات (يُطبَّق سلّم التقييم الجديد بعد إعادة فتح التطبيق)');
+    run(() => api('/settings', { method: 'PATCH', body: { gradeScale: s.gradeScale, auditRetentionDays: s.auditRetentionDays, absenceThreshold: s.absenceThreshold, backupKeep: s.backupKeep, teachersCanAddStudents: !!s.teachersCanAddStudents } }), 'تم حفظ الإعدادات (يُطبَّق سلّم التقييم الجديد بعد إعادة فتح التطبيق)');
   };
   const setG = (i, k, v) => setS((x) => ({ ...x, gradeScale: x.gradeScale.map((g, j) => (j === i ? { ...g, [k]: v } : g)) }));
 
@@ -56,6 +56,9 @@ export default function Admin({ online }) {
           </div>
         ))}
         <button type="button" className="btn ghost" onClick={() => setS((x) => ({ ...x, gradeScale: [...x.gradeScale, { label: '', score: 0 }] }))}>+ تقييم</button>
+        <h3 style={{ marginTop: 16 }}>الصلاحيات</h3>
+        <label className="check"><input type="checkbox" checked={!!s.teachersCanAddStudents} onChange={(e) => setS({ ...s, teachersCanAddStudents: e.target.checked })} />السماح للمعلمين بإضافة طلاب</label>
+        <p className="small muted">عند التفعيل يضيف المعلم طلاباً إلى نفسه فقط، وبمستويات مُعيَّنة له، ويصل إشعار للمشرفين. يُطبَّق فوراً في الخادم.</p>
         <h3 style={{ marginTop: 16 }}>خيارات عامة</h3>
         <label>أيام الغياب المتتالية لإرسال تنبيه<input type="number" min="1" max="30" value={s.absenceThreshold} onChange={(e) => setS({ ...s, absenceThreshold: e.target.value })} /></label>
         <label>مدة الاحتفاظ بسجل العمليات (أيام)<input type="number" min="30" value={s.auditRetentionDays} onChange={(e) => setS({ ...s, auditRetentionDays: e.target.value })} /></label>

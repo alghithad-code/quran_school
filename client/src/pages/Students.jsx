@@ -1,12 +1,15 @@
 import { useCallback, useEffect, useState } from 'react';
 import { api } from '../api.js';
-import { Empty, FILTER_AR, Icon, IconBtn, Loading, Modal, Progress, STATUS_AR, fmtTime, go, initial, qs, todayStr, useFlash } from '../ui.jsx';
+import { Empty, FILTER_AR, Icon, IconBtn, Loading, Modal, Progress, STATUS_AR, fmtTime, go, initial, qs, todayStr, useFlash, useSettings } from '../ui.jsx';
 
 const blank = { name: '', age: '', phone: '', enrolledAt: todayStr(), teacherId: '', levelId: '', position: '', notes: '' };
 
 // embedded: تُستخدم داخل صفحة المعلم (الفلاتر محلية ولا تغيّر العنوان)
 export default function Students({ me, online, query, embedded = false, onFilter }) {
   const isManager = me.role !== 'teacher';
+  const { teachersCanAddStudents } = useSettings();
+  const canAdd = isManager || !!teachersCanAddStudents;
+  const myLevels = (me.levelIds || []).map(String);
   const [q, setQ] = useState('');
   const [page, setPage] = useState(1);
   const [data, setData] = useState({ items: null, total: 0, pages: 1 });
@@ -99,7 +102,7 @@ export default function Students({ me, online, query, embedded = false, onFilter
     <div>
       <div className="row">
         <input className="grow" placeholder="بحث بالاسم أو الهاتف" value={q} onChange={(e) => setQ(e.target.value)} />
-        {isManager && <IconBtn icon="plus" label="إضافة طالب" caption="طالب" tone="on" disabled={!online} onClick={() => setForm({ ...blank, teacherId: embedded ? query.teacherId : '' })} />}
+        {canAdd && <IconBtn icon="plus" label="إضافة طالب" caption="طالب" tone="on" disabled={!online} onClick={() => setForm({ ...blank, teacherId: embedded ? query.teacherId : '' })} />}
       </div>
 
       <div className="chips">
@@ -169,8 +172,10 @@ export default function Students({ me, online, query, embedded = false, onFilter
         <Modal title="طالب جديد" onClose={() => setForm(null)}>
           <form onSubmit={create}>
             <label>الاسم<input value={form.name} onChange={set('name')} required /></label>
-            <label>المعلم<select value={form.teacherId} onChange={set('teacherId')} required><option value="">اختر المعلم</option>{teachers.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}</select></label>
-            <label>المستوى<select value={form.levelId} onChange={set('levelId')}><option value="">بلا مستوى</option>{levels.map((l) => <option key={l.id} value={l.id}>{l.name}</option>)}</select></label>
+            {isManager ? (
+              <label>المعلم<select value={form.teacherId} onChange={set('teacherId')} required><option value="">اختر المعلم</option>{teachers.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}</select></label>
+            ) : <p className="small muted">سيُضاف الطالب إلى طلابك.</p>}
+            <label>المستوى<select value={form.levelId} onChange={set('levelId')}><option value="">بلا مستوى</option>{(isManager ? levels : levels.filter((l) => myLevels.includes(String(l.id)))).map((l) => <option key={l.id} value={l.id}>{l.name}</option>)}</select></label>
             <label>العمر<input type="number" inputMode="numeric" min="3" max="100" value={form.age} onChange={set('age')} /></label>
             <label>رقم الهاتف (اختياري)<input dir="ltr" inputMode="tel" placeholder="05XXXXXXXX" value={form.phone} onChange={set('phone')} /></label>
             <label>تاريخ الالتحاق<input type="date" max={todayStr()} value={form.enrolledAt} onChange={set('enrolledAt')} /></label>
