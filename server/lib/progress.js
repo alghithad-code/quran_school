@@ -4,21 +4,21 @@ const { SURAHS } = require('../data/quran');
 
 const idOf = (x) => (x && x._id ? String(x._id) : x ? String(x) : null);
 
-// تقدّم الطالب في مستواه: نسبة الآيات المحفوظة من سور المستوى، من سجلات «الحفظ» بالسورة والآيات.
+// تقدّم الطالب في مستوى تسجيله (لكل تسجيل تقدّمه المستقل): نسبة الآيات المحفوظة من سور المستوى، من سجلات «الحفظ» بالسورة والآيات.
 // التقييم الذي درجته 0 («يحتاج إلى إعادة») لا يُحتسب حفظاً. التسميع بالصفحات لا يدخل في الحساب.
-async function progressFor(students, { detail = false } = {}) {
-  const levelIds = [...new Set(students.map((s) => idOf(s.levelId)).filter(Boolean))];
+async function progressFor(enrollments, { detail = false } = {}) {
+  const levelIds = [...new Set(enrollments.map((s) => idOf(s.levelId)).filter(Boolean))];
   if (!levelIds.length) return new Map();
   const levels = await Level.find({ _id: { $in: levelIds } }).select('surahs').lean();
   const lm = new Map(levels.filter((l) => l.surahs?.length).map((l) => [String(l._id), l.surahs]));
-  const target = students.filter((s) => lm.has(idOf(s.levelId)));
+  const target = enrollments.filter((s) => lm.has(idOf(s.levelId)));
   if (!target.length) return new Map();
 
   const scores = scoreMap(await getSettings());
-  const recs = await Recitation.find({ studentId: { $in: target.map((s) => s._id) }, type: 'hifz', mode: 'surah' })
-    .select('studentId surah fromAyah toAyah grade').lean();
+  const recs = await Recitation.find({ enrollmentId: { $in: target.map((s) => s._id) }, type: 'hifz', mode: 'surah' })
+    .select('enrollmentId surah fromAyah toAyah grade').lean();
   const by = new Map();
-  recs.forEach((r) => { const k = String(r.studentId); (by.get(k) || by.set(k, []).get(k)).push(r); });
+  recs.forEach((r) => { const k = String(r.enrollmentId); (by.get(k) || by.set(k, []).get(k)).push(r); });
 
   const out = new Map();
   for (const s of target) {
