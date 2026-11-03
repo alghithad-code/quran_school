@@ -10,7 +10,7 @@ router.use(requireAuth);
 router.get('/', async (req, res, next) => {
   try {
     const s = await getSettings();
-    if (req.user.role !== 'admin') return res.json({ gradeScale: s.gradeScale, absenceThreshold: s.absenceThreshold });
+    if (req.user.role !== 'admin') return res.json({ gradeScale: s.gradeScale, absenceThreshold: s.absenceThreshold, teachersCanAddStudents: s.teachersCanAddStudents });
     res.json(s);
   } catch (e) { next(e); }
 });
@@ -24,6 +24,7 @@ const schema = z.object({
   auditRetentionDays: z.coerce.number().int().min(30, 'أقل مدة 30 يوماً').max(3650).optional(),
   absenceThreshold: z.coerce.number().int().min(1).max(30).optional(),
   backupKeep: z.coerce.number().int().min(1).max(52).optional(),
+  teachersCanAddStudents: z.boolean().optional(),
 });
 
 router.patch('/', requireRole('admin'), async (req, res, next) => {

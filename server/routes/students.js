@@ -7,7 +7,8 @@ const User = require('../models/User');
 const { requireAuth, requireRole } = require('../middleware/auth');
 const { loadStudent, isManager } = require('../lib/access');
 const { buildStudentQuery } = require('../lib/studentFilters');
-const { notify } = require('../lib/notify');
+const { notify, managerIds } = require('../lib/notify');
+const { getSettings } = require('../lib/settings');
 const { audit } = require('../utils/audit');
 const { normalizeSaudiPhone, whatsappLink } = require('../utils/phone');
 const { todayStr, isDateStr } = require('../utils/dates');
@@ -58,9 +59,12 @@ const createSchema = z.object({
   notes: z.string().trim().max(1000).optional().default(''),
 });
 
-router.post('/', manager, async (req, res, next) => {
+router.post('/', async (req, res, next) => {
   try {
-    const p = createSchema.safeParse(req.body);
+    const byManager = isManager(req.user);
+    // المعلم: مسموح فقط إذا فعّل مدير النظام الميزة، ويُضاف الطالب إليه هو دائماً
+    if (!byManager && !(await getSettings()).teachersCanAddStudents) return res.status(403).json({ error: 'إضافة الطلاب غير مفعّلة للمعلمين' });
+    const p = createSchema.safeParse(byManager ? req.body : { ...req.body, teacherId: String(req.user._id) });
     if (!p.success) return res.status(400).json({ error: p.error.issues[0].message });
     const d = p.data;
     const phone = normalizeSaudiPhone(d.phone);
@@ -71,13 +75,15 @@ router.post('/', manager, async (req, res, next) => {
     if (!teacher) return res.status(400).json({ error: 'المعلم غير موجود أو موقوف' });
     let levelId = null;
     if (d.levelId) {
+      if (!byManager && !(req.user.levelIds || []).map(String).includes(d.levelId)) return res.status(400).json({ error: 'اختر مستوى من مستوياتك' });
       if (!(await Level.exists({ _id: d.levelId }))) return res.status(400).json({ error: 'المستوى غير موجود' });
       levelId = d.levelId;
     }
     const s = await Student.create({ name: d.name, age: d.age, phone, enrolledAt, teacherId: teacher._id, levelId, position: d.position, notes: d.notes, createdBy: req.user._id });
     if (levelId) await LevelChange.create({ studentId: s._id, toLevelId: levelId, type: 'assign', byId: req.user._id });
-    await audit(req, 'student.create', { targetType: 'student', target: s, details: { teacher: teacher.name } });
-    await notify([teacher._id], { type: 'student.assigned', title: 'طالب جديد', body: `تمت إضافة الطالب ${s.name} إليك`, link: `/students/${s._id}` });
+    await audit(req, 'student.create', { targetType: 'student', target: s, details: { teacher: teacher.name, addedByTeacher: !byManager } });
+    if (byManager) await notify([teacher._id], { type: 'student.assigned', title: 'طالب جديد', body: `تمت إضافة الطالب ${s.name} إليك`, link: `/students/${s._id}` });
+    else await notify(await managerIds(), { type: 'student.added_by_teacher', title: 'طالب أضافه معلم', body: `${teacher.name} أضاف الطالب ${s.name}`, link: `/students/${s._id}` });
     res.status(201).json({ student: present(await populate(Student.findById(s._id))) });
   } catch (err) { next(err); }
 });
