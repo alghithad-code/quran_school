@@ -36,6 +36,9 @@ export default function App() {
   }, []);
   useEffect(() => { setOpen(false); }, [path]);
 
+  // يتحدّث الإعداد عند فتح الطلاب (مثلاً إذا غيّر المدير صلاحية إضافة الطلاب)
+  useEffect(() => { if (user && path.startsWith('/students')) api('/settings').then(setSettings).catch(() => {}); }, [path, user]); // eslint-disable-line react-hooks/exhaustive-deps
+
   const loadSession = useCallback((u) => { setUser(u); api('/settings').then(setSettings).catch(() => {}); }, []);
   useEffect(() => {
     api('/auth/me').then((d) => { setCsrf(d.csrfToken); loadSession(d.user); }).catch(() => {}).finally(() => setReady(true));
