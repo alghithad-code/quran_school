@@ -52,10 +52,12 @@ function buildApp() {
 
   app.use('/api/auth', require('./routes/auth'));
   app.use('/api/users', require('./routes/users'));
-  const { studentRecords, recordEdit, bulkAttendance } = require('./routes/records');
+  const { studentRecords, enrollmentRecords, recordEdit, bulkAttendance } = require('./routes/records');
   app.use('/api/attendance/bulk', bulkAttendance);
   app.use('/api/students/:id', studentRecords);
   app.use('/api/students', require('./routes/students'));
+  app.use('/api/enrollments/:eid', enrollmentRecords);
+  app.use('/api/enrollments', require('./routes/enrollments'));
   app.use('/api/records', recordEdit);
   app.use('/api/transfers', require('./routes/transfers'));
   app.use('/api/levels', require('./routes/levels'));

@@ -7,8 +7,13 @@ async function main() {
   mongoose.set('strictQuery', true);
   await mongoose.connect(config.mongoUri, { serverSelectionTimeoutMS: 10000 });
   console.log('✅ متصل بقاعدة البيانات');
+  const { migrate, dropLegacyIndexes } = require('./lib/migrate');
+  await dropLegacyIndexes();
+  await migrate(); // قبل بناء الفهارس الجديدة
   await require('./models/User').init(); // إنشاء الفهارس
-  await Promise.all(Object.values(require('./models')).map((m) => m.init()));
+  for (const m of Object.values(require('./models'))) {
+    try { await m.init(); } catch (err) { console.error(`فهرس ${m.modelName}:`, err.message); }
+  }
   await bootstrapAdmin();
 
   require('./lib/jobs').start();
