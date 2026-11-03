@@ -31,12 +31,25 @@ const Student = mongoose.model('Student', (() => {
     name: { type: String, required: true, trim: true, maxlength: 100 },
     age: { type: Number, min: 3, max: 100 },
     phone: { type: String, default: '' },
-    enrolledAt: { type: String, required: true }, // YYYY-MM-DD
+    enrolledAt: { type: String, required: true }, // تاريخ الالتحاق بالمدرسة YYYY-MM-DD
+    notes: { type: String, default: '', maxlength: 1000 }, // ملاحظات عامة (للمشرف)
+    status: { type: String, enum: ['active', 'paused', 'archived'], default: 'active', index: true },
+    createdBy: oid('User'),
+  }, { timestamps: true });
+  s.index({ name: 1 });
+  return s;
+})());
+
+// تسجيل الطالب في مستوى: لكل تسجيل معلمه وجدوله وموضع حفظه وحضوره وسجلاته المستقلة.
+const Enrollment = mongoose.model('Enrollment', (() => {
+  const s = new Schema({
+    studentId: oid('Student', { required: true, index: true }),
     teacherId: oid('User', { required: true, index: true }),
     levelId: oid('Level', { default: null, index: true }),
-    position: { type: String, default: '', maxlength: 200 }, // موضع الحفظ
+    position: { type: String, default: '', maxlength: 200 }, // موضع الحفظ في هذا المستوى
     notes: { type: String, default: '', maxlength: 1000 },
-    status: { type: String, enum: ['active', 'paused', 'archived'], default: 'active', index: true },
+    status: { type: String, enum: ['active', 'ended'], default: 'active', index: true },
+    startedAt: { type: String },
     schedule: {
       days: { type: [Number], default: [] }, // 0=الأحد
       arrivalTime: { type: String, default: '' },
@@ -46,12 +59,13 @@ const Student = mongoose.model('Student', (() => {
     },
     createdBy: oid('User'),
   }, { timestamps: true });
-  s.index({ name: 1 });
+  s.index({ studentId: 1, status: 1 });
   return s;
 })());
 
 const recordBase = {
   studentId: oid('Student', { required: true }),
+  enrollmentId: oid('Enrollment', { required: true }),
   date: { type: String, required: true }, // YYYY-MM-DD بتوقيت المدرسة
   createdBy: oid('User', { required: true }),
   updatedBy: oid('User'),
@@ -59,7 +73,8 @@ const recordBase = {
 
 const Attendance = mongoose.model('Attendance', (() => {
   const s = new Schema({ ...recordBase, status: { type: String, enum: ['present', 'absent'], required: true }, note: { type: String, default: '', maxlength: 300 } }, { timestamps: true });
-  s.index({ studentId: 1, date: 1 }, { unique: true });
+  s.index({ enrollmentId: 1, date: 1 }, { unique: true }); // سجل حضور واحد لكل تسجيل في اليوم
+  s.index({ studentId: 1, date: -1 });
   s.index({ date: 1, status: 1 });
   return s;
 })());
@@ -73,6 +88,7 @@ const Recitation = mongoose.model('Recitation', (() => {
     fromPage: Number, toPage: Number,
     grade: { type: String, default: null }, // مفتاح من سلّم التقييم
   }, { timestamps: true });
+  s.index({ enrollmentId: 1, date: -1 });
   s.index({ studentId: 1, date: -1 });
   s.index({ date: 1, type: 1 });
   return s;
@@ -90,12 +106,14 @@ const Note = mongoose.model('Note', (() => {
 
 const Transfer = mongoose.model('Transfer', new Schema({
   studentId: oid('Student', { required: true, index: true }),
+  enrollmentId: oid('Enrollment'),
   fromTeacherId: oid('User'), toTeacherId: oid('User', { required: true }),
   byId: oid('User', { required: true }), batchId: String,
 }, { timestamps: { createdAt: true, updatedAt: false } }));
 
 const LevelChange = mongoose.model('LevelChange', new Schema({
   studentId: oid('Student', { required: true, index: true }),
+  enrollmentId: oid('Enrollment'),
   fromLevelId: oid('Level', { default: null }), toLevelId: oid('Level', { required: true }),
   type: { type: String, enum: ['assign', 'promotion', 'demotion'], required: true },
   reason: { type: String, default: '', maxlength: 500 },
@@ -104,6 +122,7 @@ const LevelChange = mongoose.model('LevelChange', new Schema({
 
 const PromotionRequest = mongoose.model('PromotionRequest', new Schema({
   studentId: oid('Student', { required: true, index: true }),
+  enrollmentId: oid('Enrollment', { index: true }),
   teacherId: oid('User', { required: true, index: true }),
   fromLevelId: oid('Level'), toLevelId: oid('Level', { required: true }),
   note: { type: String, default: '', maxlength: 1000 },
@@ -134,4 +153,4 @@ const Backup = mongoose.model('Backup', new Schema({
   counts: Schema.Types.Mixed, error: String, createdBy: oid('User'),
 }, { timestamps: { createdAt: true, updatedAt: false } }));
 
-module.exports = { Level, Group, Student, Attendance, Recitation, Note, Transfer, LevelChange, PromotionRequest, Notification, Setting, Backup };
+module.exports = { Level, Group, Student, Enrollment, Attendance, Recitation, Note, Transfer, LevelChange, PromotionRequest, Notification, Setting, Backup };
