@@ -73,7 +73,7 @@ export const ACTION_AR = {
   'user.create': 'إنشاء حساب', 'user.update': 'تعديل حساب', 'user.suspend': 'إيقاف حساب', 'user.activate': 'تنشيط حساب', 'user.reset_password': 'إعادة تعيين كلمة مرور', 'user.change_password': 'تغيير كلمة المرور',
   'student.create': 'إضافة طالب', 'student.update': 'تعديل طالب', 'student.status': 'تغيير حالة طالب', 'student.schedule': 'تعديل جدول طالب', 'student.transfer': 'نقل طالب', 'student.transfer_bulk': 'نقل جماعي',
   'student.level_assign': 'تعيين مستوى', 'student.level_promotion': 'ترقية طالب', 'student.level_demotion': 'خفض مستوى طالب',
-  'attendance.create': 'تسجيل حضور', 'attendance.bulk': 'تحضير جماعي', 'group.create': 'إضافة مجموعة', 'group.update': 'تعديل مجموعة', 'group.delete': 'حذف مجموعة', 'group.members': 'تعديل أعضاء مجموعة', 'attendance.update': 'تعديل حضور', 'recitation.create': 'تسجيل حفظ/مراجعة', 'recitation.update': 'تعديل حفظ/مراجعة', 'note.create': 'إضافة ملاحظة', 'note.update': 'تعديل ملاحظة',
+  'attendance.create': 'تسجيل حضور', 'attendance.bulk': 'تحضير جماعي', 'enrollment.update': 'تعديل موضع/ملاحظات مستوى', 'student.enrollment_add': 'تسجيل في مستوى إضافي', 'student.enrollment_status': 'إنهاء/تفعيل تسجيل مستوى', 'group.create': 'إضافة مجموعة', 'group.update': 'تعديل مجموعة', 'group.delete': 'حذف مجموعة', 'group.members': 'تعديل أعضاء مجموعة', 'attendance.update': 'تعديل حضور', 'recitation.create': 'تسجيل حفظ/مراجعة', 'recitation.update': 'تعديل حفظ/مراجعة', 'note.create': 'إضافة ملاحظة', 'note.update': 'تعديل ملاحظة',
   'level.create': 'إضافة مستوى', 'level.update': 'تعديل مستوى', 'level.delete': 'حذف مستوى', 'level.reorder': 'ترتيب المستويات', 'level.assign_teacher': 'ربط معلم بمستويات',
   'promotion.request': 'طلب ترقية', 'promotion.approve': 'قبول ترقية', 'promotion.reject': 'رفض ترقية',
   'settings.update': 'تعديل الإعدادات', 'backup.create': 'إنشاء نسخة احتياطية', 'backup.download': 'تنزيل نسخة', 'backup.upload': 'رفع نسخة', 'audit.cleanup': 'تنظيف سجل العمليات',
@@ -111,6 +111,17 @@ export function Progress({ pct, label, thin = false }) {
   );
 }
 
+// حقل كلمة مرور بزر عين لإظهارها/إخفائها للتأكد منها
+export function PasswordInput(props) {
+  const [show, setShow] = useState(false);
+  return (
+    <div className="pw">
+      <input {...props} type={show ? 'text' : 'password'} dir="ltr" />
+      <button type="button" className="eye" aria-label={show ? 'إخفاء كلمة المرور' : 'إظهار كلمة المرور'} onClick={() => setShow((v) => !v)}><Icon name={show ? 'eyeoff' : 'eye'} size={20} /></button>
+    </div>
+  );
+}
+
 export const linkTo = (l) => (l ? '#' + l : '#/');
 
 export const todayStr = () => new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Riyadh', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date());
@@ -135,6 +146,9 @@ const ICONS = {
   lock: ['M19 11H5a2 2 0 0 0-2 2v7a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7a2 2 0 0 0-2-2z', 'M7 11V7a5 5 0 0 1 10 0v4'],
   check: ['M20 6L9 17l-5-5'],
   moon: ['M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z'],
+  eye: ['M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z', 'M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6z'],
+  eyeoff: ['M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24', 'M1 1l22 22'],
+  clock: ['M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20z', 'M12 6v6l4 2'],
   grid: ['M3 3h7v7H3z', 'M14 3h7v7h-7z', 'M14 14h7v7h-7z', 'M3 14h7v7H3z'],
   trash: ['M3 6h18', 'M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6', 'M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2', 'M10 11v6', 'M14 11v6'],
   edit: ['M17 3a2.83 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z'],
