@@ -31,7 +31,7 @@ const Student = mongoose.model('Student', (() => {
     name: { type: String, required: true, trim: true, maxlength: 100 },
     age: { type: Number, min: 3, max: 100 },
     phone: { type: String, default: '' },
-    enrolledAt: { type: String, required: true }, // تاريخ الالتحاق بالمدرسة YYYY-MM-DD
+    enrolledAt: { type: String, required: true }, // تاريخ الالتحاق بالمجتمع YYYY-MM-DD
     notes: { type: String, default: '', maxlength: 1000 }, // ملاحظات عامة (للمشرف)
     status: { type: String, enum: ['active', 'paused', 'archived'], default: 'active', index: true },
     createdBy: oid('User'),
@@ -66,7 +66,7 @@ const Enrollment = mongoose.model('Enrollment', (() => {
 const recordBase = {
   studentId: oid('Student', { required: true }),
   enrollmentId: oid('Enrollment', { required: true }),
-  date: { type: String, required: true }, // YYYY-MM-DD بتوقيت المدرسة
+  date: { type: String, required: true }, // YYYY-MM-DD بتوقيت المجتمع
   createdBy: oid('User', { required: true }),
   updatedBy: oid('User'),
 };
