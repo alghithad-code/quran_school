@@ -56,7 +56,7 @@ export default function Reports({ me, query }) {
   }, [text, type, id]);
 
   const nav = (patch) => go('/reports' + qs({ type, id, month, teacherId: query.teacherId, levelId: query.levelId, ...patch }));
-  const types = isManager ? [['school', 'المدرسة'], ['teacher', 'معلم'], ['student', 'طالب']] : [['teacher', 'تقريري'], ['student', 'طالب']];
+  const types = isManager ? [['school', 'المجتمع'], ['teacher', 'معلم'], ['student', 'طالب']] : [['teacher', 'تقريري'], ['student', 'طالب']];
 
   let path = null;
   if (type === 'school' && isManager) path = '/reports/school' + qs({ month, teacherId: query.teacherId, levelId: query.levelId });

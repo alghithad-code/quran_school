@@ -68,7 +68,7 @@ export default function Admin({ online }) {
 
       <div className="card">
         <h3>النسخ الاحتياطي</h3>
-        <p className="small muted">تُنشأ نسخة تلقائية أسبوعياً. نزّل نسخة دورية واحفظها خارج الاستضافة. الملف يحتوي بيانات المدرسة وتجزئات كلمات المرور، فاحفظه بسرية.</p>
+        <p className="small muted">تُنشأ نسخة تلقائية أسبوعياً. نزّل نسخة دورية واحفظها خارج الاستضافة. الملف يحتوي بيانات المجتمع وتجزئات كلمات المرور، فاحفظه بسرية.</p>
         <div className="irow" style={{ marginBottom: 10 }}>
           <IconBtn icon="plus" tone="on" caption="نسخة الآن" label="إنشاء نسخة احتياطية" disabled={busy || !online} onClick={() => run(() => api('/backups', { method: 'POST' }), 'تم إنشاء النسخة')} />
           <IconBtn icon="upload" caption="رفع نسخة" label="رفع نسخة محفوظة" disabled={busy || !online} onClick={() => file.current.click()} />

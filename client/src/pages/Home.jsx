@@ -1,5 +1,11 @@
+import { useState } from 'react';
 import { api } from '../api.js';
+import { QuranReader } from '../quranReader.jsx';
 import { Empty, ErrorBox, Loading, fmtDT, linkTo, qs, useLoad } from '../ui.jsx';
+
+// التاريخ الهجري (أم القرى) والميلادي بتوقيت الرياض
+const HIJRI = new Intl.DateTimeFormat('ar-SA-u-ca-islamic-umalqura-nu-latn', { timeZone: 'Asia/Riyadh', weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+const GREG = new Intl.DateTimeFormat('ar-u-ca-gregory-nu-latn', { timeZone: 'Asia/Riyadh', day: 'numeric', month: 'long', year: 'numeric' });
 
 const Card = ({ n, label, to, warn }) => (
   <a className={'stat' + (warn && n > 0 ? ' warn' : '')} href={'#' + to}>
@@ -10,6 +16,9 @@ const Card = ({ n, label, to, warn }) => (
 
 export default function Home({ user }) {
   const { data, error, loading } = useLoad(() => api('/dashboard'), []);
+  const daily = useLoad(() => api('/quran/daily'), []);
+  const [reader, setReader] = useState(null);
+  const now = new Date();
   if (loading) return <Loading />;
   if (error) return <ErrorBox text={error} />;
   const c = data.cards;
@@ -19,8 +28,15 @@ export default function Home({ user }) {
       <div className="banner">
         <div className="bismillah sm">بسم الله الرحمن الرحيم</div>
         <h2>أهلاً {user.name}</h2>
-        <p className="hadith">«خيرُكم من تعلَّم القرآنَ وعلَّمه» <small>(رواه البخاري)</small></p>
+        <div className="dates"><span>{HIJRI.format(now)}</span><span>الموافق {GREG.format(now)}</span></div>
+        {daily.data && (
+          <button className="verse" onClick={() => setReader({ surah: daily.data.surah, ranges: [[daily.data.ayah, daily.data.ayah]], legend: 'آية اليوم' })}>
+            <span className="vtext">﴿ {daily.data.text} ﴾</span>
+            <small>سورة {daily.data.name} · الآية {daily.data.ayah}</small>
+          </button>
+        )}
       </div>
+      {reader && <QuranReader {...reader} onClose={() => setReader(null)} />}
       {data.role === 'manager' ? (
         <>
           <div className="grid">

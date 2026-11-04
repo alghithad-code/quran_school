@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { api } from '../api.js';
 import { SURAHS } from '../quran.js';
+import { QuranReader } from '../quranReader.jsx';
 import { CAT_AR, DAYS_AR, ErrorBox, IconBtn, Loading, Modal, Progress, STATUS_AR, fmtDT, fmtTime, go, goalText, gradeLabel, qs, todayStr, useFlash, useLoad, useSettings } from '../ui.jsx';
 
 const LVL_AR = { assign: 'تعيين', promotion: 'ترقية', demotion: 'خفض' };
@@ -174,7 +175,7 @@ export default function StudentDetail({ id, me, online }) {
               <Progress pct={cur.progress.pct} label={`${cur.progress.pct}% — حفظ ${cur.progress.memorized} من ${cur.progress.total} آية من سور المستوى`} />
               <div className="chips" style={{ marginTop: 10, marginBottom: 0 }}>
                 {cur.progress.surahs.map((x) => (
-                  <span key={x.surah} className={'chip' + (x.memorized === x.total ? ' on' : '')} title={`${x.memorized} من ${x.total}`}>{x.name}{x.memorized === x.total ? ' ✓' : x.memorized ? ` ${Math.round((x.memorized / x.total) * 100)}%` : ''}</span>
+                  <button key={x.surah} className={'chip' + (x.memorized === x.total ? ' on' : '')} title={`${x.memorized} من ${x.total} — اضغط لعرض السورة`} onClick={() => setModal({ reader: { surah: x.surah, ranges: x.ranges || [], legend: 'الآيات المحفوظة' } })}>{x.name}{x.memorized === x.total ? ' ✓' : x.memorized ? ` ${Math.round((x.memorized / x.total) * 100)}%` : ''}</button>
                 ))}
               </div>
               <p className="small muted" style={{ marginBottom: 0 }}>يُحسب من سجلات «الحفظ» بالسورة والآيات في هذا المستوى (التقييم «يحتاج إلى إعادة» لا يُحتسب، والتسميع بالصفحات غير داخل في الحساب).</p>
@@ -215,7 +216,10 @@ export default function StudentDetail({ id, me, online }) {
                   {d.sub && <div className="small">{d.sub}</div>}
                   <div className="row between" style={{ marginBottom: 0 }}>
                     <small className="muted">{r.by?.name} · {fmtDT(r.at)}</small>
+ <span className="irow">
+                      {r.kind === 'recitation' && r.mode === 'surah' && <IconBtn icon="book" tone="ok" label="عرض السورة مع تظليل المقطع" onClick={() => setModal({ reader: { surah: r.surah, ranges: [[r.fromAyah, r.toAyah]], legend: 'المقطع المسمَّع' } })} />}
                     {r.editable && <IconBtn icon="edit" label="تعديل السجل" disabled={!online} onClick={() => setModal({ kind: r.kind === 'recitation' ? r.type : r.kind, rec: r })} />}
+                    </span>
                   </div>
                 </div>
               );
@@ -231,6 +235,7 @@ export default function StudentDetail({ id, me, online }) {
         {!info.data.transfers.length && !info.data.levelChanges.length && <p className="muted small">لا يوجد</p>}
       </div>
 
+      {modal?.reader && <QuranReader {...modal.reader} onClose={() => setModal(null)} />}
       {modal?.kind && cur && <RecordForm enrollmentId={cur.id} kind={modal.kind} rec={modal.rec} scale={scale} levelSurahs={levelSurahs} onDone={done} onClose={() => setModal(null)} />}
 
       {modal?.editS && (

@@ -17,12 +17,12 @@ export default function Login({ onLogin, online }) {
   return (
     <div className="login">
       <div className="hero">
-        <Logo size={72} />
+        <Logo size={110} />
         <div className="bismillah">بسم الله الرحمن الرحيم</div>
         <div className="ayah">﴿ وَرَتِّلِ الْقُرْآنَ تَرْتِيلًا ﴾</div>
       </div>
       <form className="card" onSubmit={submit}>
-        <h1>مدرسة التحفيظ</h1>
+        <h1>مجتمع بالقرآن نحيا</h1>
         <p className="muted">تسجيل الدخول</p>
         {!online && <div className="alert">لا يوجد اتصال بالإنترنت</div>}
         <label>اسم المستخدم<input dir="ltr" autoComplete="username" value={username} onChange={(e) => setUsername(e.target.value)} required /></label>
