@@ -133,7 +133,7 @@ router.get('/school', requireRole('admin', 'supervisor'), async (req, res, next)
       return [name, distinct(list), `${pct(p, p + a)}%`];
     });
     send(req, res, {
-      title: 'تقرير المدرسة', period,
+      title: 'تقرير المجتمع', period,
       summary: [['إجمالي الطلاب', distinct(enrs)], ['إجمالي التسجيلات (المستويات)', enrs.length], ['إجمالي المعلمين النشطين', teachers], ['الحضور', g.present], ['الغياب', g.absent], ['نسبة الحضور', `${pct(g.present, g.present + g.absent)}%`], ['متوسط تقييم الحفظ', fmt(g.hifzAvg)], ['متوسط تقييم المراجعة', fmt(g.reviewAvg)], ['عمليات النقل في الفترة', transfers], ['طلبات الترقية في الفترة', `${promos.length} (معلّق ${promos.filter((p) => p.status === 'pending').length}، موافق ${promos.filter((p) => p.status === 'approved').length}، مرفوض ${promos.filter((p) => p.status === 'rejected').length})`]],
       tables: [
         { title: 'توزيع التسجيلات على المستويات', columns: ['المستوى', 'عدد الطلاب'], rows: byLevel },
