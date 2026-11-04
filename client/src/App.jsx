@@ -98,7 +98,7 @@ export default function App() {
     <SettingsCtx.Provider value={settings}>
       <div className="shell">
         <aside className={'side noprint' + (open ? ' open' : '')}>
-          <div className="brand"><Logo size={44} /><div><b>مدرسة التحفيظ</b><small>إدارة حلقات القرآن الكريم</small></div></div>
+          <div className="brand"><Logo size={44} /><div><b>مجتمع بالقرآن نحيا</b><small>إدارة حلقات القرآن الكريم</small></div></div>
           <nav className="menu">
             {items.map(([k, icon, label]) => (
               <a key={k} href={'#/' + k} className={'mi' + (key === k ? ' on' : '')}>

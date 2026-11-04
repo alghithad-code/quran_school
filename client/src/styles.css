@@ -178,3 +178,19 @@ th { background: var(--g2); }
 
 /* ---- صف التسجيل داخل بطاقة الطالب ---- */
 .enr { display: grid; gap: 6px; padding: 10px; border: 1px solid var(--bd); border-radius: 12px; background: #fffaf0; }
+
+/* ---- شعار المجتمع ---- */
+.logo { border-radius: 50%; display: block; background: #fff; flex-shrink: 0; object-fit: cover; box-shadow: 0 0 0 2px var(--gold2); }
+
+/* ---- التاريخ وآية اليوم ---- */
+.dates { display: flex; flex-wrap: wrap; justify-content: center; gap: 4px 14px; font-size: 14.5px; color: #f3e3b5; margin-bottom: 10px; }
+.verse { display: grid; gap: 4px; width: 100%; background: #ffffff1a; border: 1px solid #c9a24a88; border-radius: 14px; padding: 12px; color: #fff; font: inherit; cursor: pointer; }
+.verse .vtext { font-family: 'Amiri Quran', var(--font-title); font-size: 21px; line-height: 2.1; }
+.verse small { color: #e9dcae; }
+
+/* ---- نافذة قراءة السورة ---- */
+.quran { font-family: 'Amiri Quran', 'Amiri', serif; font-size: 25px; line-height: 2.5; text-align: justify; padding: 4px 2px; }
+.qbis { text-align: center; color: var(--g); margin-bottom: 6px; }
+.qnum { color: var(--gold); font-size: 20px; margin-inline: 2px; }
+.ay.hl { background: #cfe8d6; border-radius: 8px; box-shadow: 0 0 0 2px #cfe8d6; }
+p .ay.hl { padding: 0 6px; font-size: 14px; }

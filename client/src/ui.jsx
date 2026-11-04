@@ -171,16 +171,9 @@ export function Icon({ name, size = 22 }) {
     </svg>
   );
 }
-// شعار: نجمة ثمانية (مربعان متداخلان) بالذهبي مع دائرة مركزية
+// شعار المجتمع (صورة دائرية)
 export function Logo({ size = 36 }) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 48 48" aria-hidden="true">
-      <rect x="9" y="9" width="30" height="30" rx="2" fill="#c9a24a" />
-      <rect x="9" y="9" width="30" height="30" rx="2" fill="#c9a24a" transform="rotate(45 24 24)" />
-      <circle cx="24" cy="24" r="10" fill="#0b4d3a" />
-      <circle cx="24" cy="24" r="5" fill="none" stroke="#c9a24a" strokeWidth="1.6" />
-    </svg>
-  );
+  return <img className="logo" src="/logo.webp" width={size} height={size} alt="شعار مجتمع بالقرآن نحيا" />;
 }
 
 // يلخّص قائمة سور: السلاسل المتصلة (3 فأكثر) تُكتب «من X إلى Y»
