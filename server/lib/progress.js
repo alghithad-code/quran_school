@@ -38,7 +38,18 @@ async function progressFor(enrollments, { detail = false } = {}) {
       const ayahs = SURAHS[n - 1].ayahs;
       const m = cover.has(n) ? cover.get(n).reduce((a, b) => a + b, 0) : 0;
       memorized += m; total += ayahs;
-      return { surah: n, name: SURAHS[n - 1].name, memorized: m, total: ayahs };
+      const ranges = [];
+      if (m) {
+        const arr = cover.get(n);
+        for (let a = 1; a <= ayahs; a += 1) {
+          if (!arr[a]) continue;
+          let b = a;
+          while (b + 1 <= ayahs && arr[b + 1]) b += 1;
+          ranges.push([a, b]);
+          a = b;
+        }
+      }
+      return { surah: n, name: SURAHS[n - 1].name, memorized: m, total: ayahs, ranges };
     });
     out.set(String(s._id), { memorized, total, pct: total ? Math.round((memorized / total) * 1000) / 10 : 0, ...(detail ? { surahs: per } : {}) });
   }
