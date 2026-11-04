@@ -1,12 +1,12 @@
 {
-  "name": "نظام مدرسة التحفيظ",
-  "short_name": "التحفيظ",
+  "name": "مجتمع بالقرآن نحيا",
+  "short_name": "بالقرآن نحيا",
   "lang": "ar",
   "dir": "rtl",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",
-  "background_color": "#073b2c",
+  "background_color": "#ffffff",
   "theme_color": "#0b5d46",
   "icons": [
     { "src": "/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },

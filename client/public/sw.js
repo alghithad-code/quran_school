@@ -1,9 +1,9 @@
 // Service Worker: يخزّن ملفات الواجهة الثابتة فقط لتجربة PWA.
 // لا يخزّن أي طلب إلى /api أبداً: البيانات والتسجيل يعملان أونلاين فقط.
-const CACHE = 'quran-school-shell-v2';
+const CACHE = 'quran-school-shell-v3';
 
 self.addEventListener('install', (e) => {
-  e.waitUntil(caches.open(CACHE).then((c) => c.addAll(['/', '/manifest.webmanifest', '/icon-192.png'])));
+  e.waitUntil(caches.open(CACHE).then((c) => c.addAll(['/', '/manifest.webmanifest', '/icon-192.png', '/logo.webp'])));
   self.skipWaiting();
 });
 self.addEventListener('activate', (e) => {
