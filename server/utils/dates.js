@@ -3,7 +3,7 @@ const config = require('../config');
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 const isDateStr = (s) => typeof s === 'string' && DATE_RE.test(s) && !Number.isNaN(Date.parse(s + 'T00:00:00Z'));
 
-// تاريخ اليوم بتوقيت المدرسة بصيغة YYYY-MM-DD
+// تاريخ اليوم بتوقيت المجتمع بصيغة YYYY-MM-DD
 function todayStr() {
   return new Intl.DateTimeFormat('en-CA', { timeZone: config.timezone, year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date());
 }
