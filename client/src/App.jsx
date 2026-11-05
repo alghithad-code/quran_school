@@ -8,6 +8,8 @@ import Teachers from './pages/Teachers.jsx';
 import TeacherDetail from './pages/TeacherDetail.jsx';
 import Groups from './pages/Groups.jsx';
 import GroupDetail from './pages/GroupDetail.jsx';
+import GroupMessage from './pages/GroupMessage.jsx';
+import { installBackGuard } from './backGuard.js';
 import Students from './pages/Students.jsx';
 import StudentDetail from './pages/StudentDetail.jsx';
 import Levels from './pages/Levels.jsx';
@@ -27,6 +29,7 @@ export default function App() {
   const [settings, setSettings] = useState({ gradeScale: [], absenceThreshold: 3 });
   const [unread, setUnread] = useState(0);
   const [open, setOpen] = useState(false);
+  const [toast, setToast] = useState('');
   const { path, query } = useRoute();
 
   useEffect(() => {
@@ -35,6 +38,11 @@ export default function App() {
     return () => { window.removeEventListener('online', on); window.removeEventListener('offline', off); };
   }, []);
   useEffect(() => { setOpen(false); }, [path]);
+  useEffect(() => {
+    let t;
+    const off = installBackGuard((m) => { setToast(m); clearTimeout(t); t = setTimeout(() => setToast(''), 2000); });
+    return () => { off(); clearTimeout(t); };
+  }, []);
 
   // يتحدّث الإعداد عند فتح الطلاب (مثلاً إذا غيّر المدير صلاحية إضافة الطلاب)
   useEffect(() => { if (user && path.startsWith('/students')) api('/settings').then(setSettings).catch(() => {}); }, [path, user]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -68,7 +76,12 @@ export default function App() {
     case 'students': page = seg[1] ? <StudentDetail key={seg[1]} id={seg[1]} me={user} online={online} /> : <Students me={user} online={online} query={query} />; break;
     case 'teachers': page = isManager ? (seg[1] ? <TeacherDetail key={seg[1]} id={seg[1]} me={user} online={online} /> : <Teachers online={online} query={query} />) : <Home user={user} />; break;
     case 'users': page = user.role === 'admin' ? <Users me={user} online={online} query={query} /> : <Home user={user} />; break;
-    case 'groups': page = seg[1] ? <GroupDetail key={seg[1]} id={seg[1]} me={user} online={online} /> : <Groups me={user} online={online} />; break;
+    case 'groups':
+      if (!isManager) { page = <Home user={user} />; break; }
+      page = seg[1]
+        ? (seg[2] === 'messages' && seg[3] ? <GroupMessage key={seg[3]} id={seg[1]} mid={seg[3]} online={online} /> : <GroupDetail key={seg[1]} id={seg[1]} online={online} />)
+        : <Groups online={online} />;
+      break;
     case 'levels': page = isManager ? <Levels online={online} /> : <Home user={user} />; break;
     case 'promotions': page = <Promotions me={user} online={online} />; break;
     case 'reports': page = <Reports me={user} query={query} />; break;
@@ -85,7 +98,7 @@ export default function App() {
     isManager && ['teachers', 'users', 'المعلمون'],
     user.role === 'admin' && ['users', 'user', 'المشرفون والمديرون'],
     isManager && ['levels', 'layers', 'المستويات'],
-    ['groups', 'grid', 'المجموعات'],
+    isManager && ['groups', 'grid', 'المجموعات'],
     ['promotions', 'up', 'طلبات الترقية'],
     ['reports', 'chart', 'التقارير'],
     ['notifications', 'bell', 'الإشعارات'],
@@ -112,6 +125,7 @@ export default function App() {
         </aside>
         {open && <div className="scrim noprint" onClick={() => setOpen(false)} />}
 
+        {toast && <div className="toast noprint">{toast}</div>}
         <div className="main">
           {!online && <div className="offline noprint">لا يوجد اتصال بالإنترنت — الحفظ والتعديل متوقفان حتى عودة الاتصال</div>}
           <header className="top noprint">
@@ -126,7 +140,7 @@ export default function App() {
             <button className={key === '' ? 'on' : ''} onClick={() => go('/')}><Icon name="home" /><span>الرئيسية</span></button>
             <button className={key === 'students' ? 'on' : ''} onClick={() => go('/students')}><Icon name="book" /><span>الطلاب</span></button>
             {isManager && <button className={key === 'teachers' ? 'on' : ''} onClick={() => go('/teachers')}><Icon name="users" /><span>المعلمون</span></button>}
-            <button className={key === 'groups' ? 'on' : ''} onClick={() => go('/groups')}><Icon name="grid" /><span>المجموعات</span></button>
+            {isManager && <button className={key === 'groups' ? 'on' : ''} onClick={() => go('/groups')}><Icon name="grid" /><span>المجموعات</span></button>}
           </nav>
         </div>
       </div>

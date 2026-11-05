@@ -194,3 +194,7 @@ th { background: var(--g2); }
 .qnum { color: var(--gold); font-size: 20px; margin-inline: 2px; }
 .ay.hl { background: #cfe8d6; border-radius: 8px; box-shadow: 0 0 0 2px #cfe8d6; }
 p .ay.hl { padding: 0 6px; font-size: 14px; }
+
+.toast { position: fixed; bottom: calc(86px + env(safe-area-inset-bottom)); left: 50%; transform: translateX(-50%); background: #1f2a24ee; color: #fff; padding: 10px 18px; border-radius: 99px; z-index: 60; font-size: 15px; }
+.msgbox { width: 100%; min-height: 120px; }
+.wa-preview { background: #dcf8c6; color: #1f2a24; border-radius: 12px 12px 4px 12px; padding: 10px 12px; white-space: pre-wrap; font-size: 15px; }

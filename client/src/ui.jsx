@@ -1,4 +1,4 @@
-import { createContext, useCallback, useContext, useEffect, useState } from 'react';
+import { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
 
 // ---------- توجيه بسيط بالـ hash: #/students/123?filter=absent_today ----------
 function parse() {
@@ -6,14 +6,62 @@ function parse() {
   const [path, qs = ''] = raw.split('?');
   return { path, query: Object.fromEntries(new URLSearchParams(qs)) };
 }
+// ---------- سجل التنقل: يستعيد موضع التمرير وحالة الصفحة عند الرجوع ----------
+if ('scrollRestoration' in window.history) window.history.scrollRestoration = 'manual'; // نستعيد الموضع بأنفسنا بعد تحميل البيانات
+const NAV_KEY = 'nav.v1';
+const nav = { stack: [], pos: 0 };
+const curHash = () => window.location.hash || '#/';
+const saveNav = () => { try { sessionStorage.setItem(NAV_KEY, JSON.stringify(nav)); } catch { /* ممتلئ أو ممنوع */ } };
+(function initNav() {
+  try {
+    const s = JSON.parse(sessionStorage.getItem(NAV_KEY) || 'null');
+    if (s && Array.isArray(s.stack) && s.stack[s.pos]?.hash === curHash()) { nav.stack = s.stack; nav.pos = s.pos; }
+  } catch { /* تجاهل */ }
+  if (!nav.stack.length) { nav.stack = [{ hash: curHash(), scroll: 0 }]; nav.pos = 0; }
+}());
+let scrollTimer;
+window.addEventListener('scroll', () => {
+  const e = nav.stack[nav.pos];
+  if (e) e.scroll = window.scrollY;
+  clearTimeout(scrollTimer);
+  scrollTimer = setTimeout(saveNav, 300);
+}, { passive: true });
+
+// يحدّد هل التنقل رجوع/أمام/جديد ويعيد موضع التمرير المطلوب
+function navigate(h) {
+  const prev = nav.stack[nav.pos - 1], next = nav.stack[nav.pos + 1];
+  let target = 0;
+  if (prev && prev.hash === h) { nav.pos -= 1; target = prev.scroll || 0; }
+  else if (next && next.hash === h) { nav.pos += 1; target = next.scroll || 0; }
+  else { nav.stack = nav.stack.slice(0, nav.pos + 1); nav.stack.push({ hash: h, scroll: 0 }); nav.pos += 1; }
+  saveNav();
+  return target;
+}
+// المحتوى يُحمَّل بعد الانتقال، فنكرر المحاولة حتى تبلغ الصفحة الارتفاع المطلوب (أو يلمسها المستخدم)
+function restoreScroll(y) {
+  if (!y) { window.scrollTo(0, 0); return; }
+  let tries = 0;
+  const evs = ['touchstart', 'wheel', 'keydown'];
+  const stop = () => { clearInterval(t); evs.forEach((ev) => window.removeEventListener(ev, stop)); };
+  const t = setInterval(() => { window.scrollTo(0, y); tries += 1; if (Math.abs(window.scrollY - y) < 4 || tries > 30) stop(); }, 80);
+  evs.forEach((ev) => window.addEventListener(ev, stop, { passive: true, once: true }));
+}
+export const loadPageState = (k) => (nav.stack[nav.pos]?.ps || {})[k];
+export const savePageState = (k, v) => { const e = nav.stack[nav.pos]; if (e) { e.ps = { ...(e.ps || {}), [k]: v }; saveNav(); } };
+export const canGoBack = () => nav.pos > 0;
+
 export function useRoute() {
   const [r, setR] = useState(parse);
   useEffect(() => {
-    const f = () => { setR(parse()); window.scrollTo(0, 0); };
+    const f = () => { const target = navigate(curHash()); setR(parse()); restoreScroll(target); };
     window.addEventListener('hashchange', f);
     return () => window.removeEventListener('hashchange', f);
   }, []);
   return r;
+}
+// رابط رجوع: يعود فعلاً للصفحة السابقة إن وُجدت، وإلا ينتقل إلى fallback
+export function BackLink({ fallback, children }) {
+  return <a className="back" href={'#' + fallback} onClick={(e) => { if (canGoBack()) { e.preventDefault(); window.history.back(); } }}>{children}</a>;
 }
 export const go = (to) => { window.location.hash = to; };
 export const qs = (o) => {
@@ -29,6 +77,20 @@ export const gradeLabel = (scale, key) => scale.find((g) => g.key === key)?.labe
 
 // ---------- مكونات ----------
 export function Modal({ title, onClose, children }) {
+  const closeRef = useRef(onClose);
+  closeRef.current = onClose;
+  useEffect(() => {
+    // نضيف مدخلاً في السجل ليغلق زر الرجوع النافذة. عند الإغلاق بالزر نزيله إن كان ما زال الأخير.
+    const id = Math.random().toString(36).slice(2);
+    window.history.pushState({ modalId: id }, '');
+    let popped = false;
+    const onPop = () => { popped = true; closeRef.current(); };
+    window.addEventListener('popstate', onPop);
+    return () => {
+      window.removeEventListener('popstate', onPop);
+      if (!popped && window.history.state?.modalId === id) window.history.back();
+    };
+  }, []);
   return (
     <div className="modal" onClick={onClose}>
       <div className="sheet" onClick={(e) => e.stopPropagation()}>
@@ -73,7 +135,7 @@ export const ACTION_AR = {
   'user.create': 'إنشاء حساب', 'user.update': 'تعديل حساب', 'user.suspend': 'إيقاف حساب', 'user.activate': 'تنشيط حساب', 'user.reset_password': 'إعادة تعيين كلمة مرور', 'user.change_password': 'تغيير كلمة المرور',
   'student.create': 'إضافة طالب', 'student.update': 'تعديل طالب', 'student.status': 'تغيير حالة طالب', 'student.schedule': 'تعديل جدول طالب', 'student.transfer': 'نقل طالب', 'student.transfer_bulk': 'نقل جماعي',
   'student.level_assign': 'تعيين مستوى', 'student.level_promotion': 'ترقية طالب', 'student.level_demotion': 'خفض مستوى طالب',
-  'attendance.create': 'تسجيل حضور', 'attendance.bulk': 'تحضير جماعي', 'enrollment.update': 'تعديل موضع/ملاحظات مستوى', 'student.enrollment_add': 'تسجيل في مستوى إضافي', 'student.enrollment_status': 'إنهاء/تفعيل تسجيل مستوى', 'group.create': 'إضافة مجموعة', 'group.update': 'تعديل مجموعة', 'group.delete': 'حذف مجموعة', 'group.members': 'تعديل أعضاء مجموعة', 'attendance.update': 'تعديل حضور', 'recitation.create': 'تسجيل حفظ/مراجعة', 'recitation.update': 'تعديل حفظ/مراجعة', 'note.create': 'إضافة ملاحظة', 'note.update': 'تعديل ملاحظة',
+  'attendance.create': 'تسجيل حضور', 'attendance.bulk': 'تحضير جماعي', 'enrollment.update': 'تعديل موضع/ملاحظات مستوى', 'student.enrollment_add': 'تسجيل في مستوى إضافي', 'student.enrollment_status': 'إنهاء/تفعيل تسجيل مستوى', 'group.create': 'إضافة مجموعة', 'group.update': 'تعديل مجموعة', 'group.delete': 'حذف مجموعة', 'group.members': 'تعديل أعضاء مجموعة', 'group.message': 'رسالة جماعية لمجموعة', 'attendance.update': 'تعديل حضور', 'recitation.create': 'تسجيل حفظ/مراجعة', 'recitation.update': 'تعديل حفظ/مراجعة', 'note.create': 'إضافة ملاحظة', 'note.update': 'تعديل ملاحظة',
   'level.create': 'إضافة مستوى', 'level.update': 'تعديل مستوى', 'level.delete': 'حذف مستوى', 'level.reorder': 'ترتيب المستويات', 'level.assign_teacher': 'ربط معلم بمستويات',
   'promotion.request': 'طلب ترقية', 'promotion.approve': 'قبول ترقية', 'promotion.reject': 'رفض ترقية',
   'settings.update': 'تعديل الإعدادات', 'backup.create': 'إنشاء نسخة احتياطية', 'backup.download': 'تنزيل نسخة', 'backup.upload': 'رفع نسخة', 'audit.cleanup': 'تنظيف سجل العمليات',
@@ -86,7 +148,7 @@ export function IconBtn({ icon, label, caption, onClick, href, tone = '', on = f
   const inner = (<><Icon name={icon} size={20} />{caption && <span>{caption}</span>}</>);
   if (href && !disabled) {
     const ext = href.startsWith('http');
-    return <a className={cls} href={href} title={label} aria-label={label} {...(ext ? { target: '_blank', rel: 'noreferrer' } : {})}>{inner}</a>;
+    return <a className={cls} href={href} title={label} aria-label={label} onClick={onClick} {...(ext ? { target: '_blank', rel: 'noreferrer' } : {})}>{inner}</a>;
   }
   return <button type="button" className={cls} title={label} aria-label={label || caption} onClick={onClick} disabled={disabled}>{inner}</button>;
 }
