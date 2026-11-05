@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { api } from '../api.js';
 import { SURAHS } from '../quran.js';
 import { QuranReader } from '../quranReader.jsx';
-import { CAT_AR, DAYS_AR, ErrorBox, IconBtn, Loading, Modal, Progress, STATUS_AR, fmtDT, fmtTime, go, goalText, gradeLabel, qs, todayStr, useFlash, useLoad, useSettings } from '../ui.jsx';
+import { BackLink, CAT_AR, DAYS_AR, ErrorBox, IconBtn, Loading, Modal, Progress, STATUS_AR, fmtDT, fmtTime, go, gradeLabel, qs, todayStr, useFlash, useLoad, useSettings } from '../ui.jsx';
 
 const LVL_AR = { assign: 'تعيين', promotion: 'ترقية', demotion: 'خفض' };
 
@@ -126,12 +126,12 @@ export default function StudentDetail({ id, me, online }) {
 
   return (
     <div>
-      <a className="back" href="#/students">‹ الطلاب</a>
+      <BackLink fallback="/students">‹ الطلاب</BackLink>
       <div className="card">
         <div className="row between"><h2 className="h" style={{ margin: 0 }}>{s.name}</h2>{s.status !== 'active' && <span className="tag bad">{STATUS_AR[s.status]}</span>}</div>
         <div className="muted small">{s.age ? `${s.age} سنة · ` : ''}التحق في {s.enrolledAt}</div>
         {isManager && s.notes && <div className="small muted">{s.notes}</div>}
-        {info.data.groups.length > 0 && <div className="metas" style={{ marginTop: 6 }}>{info.data.groups.map((g) => <a key={g.id} className="goal" href={'#/groups/' + g.id} title={goalText(g)}>{g.name}</a>)}</div>}
+        {info.data.groups.length > 0 && <div className="metas" style={{ marginTop: 6 }}>{info.data.groups.map((g) => <a key={g.id} className="goal" href={'#/groups/' + g.id}>{g.name}</a>)}</div>}
         <div className="irow" style={{ marginTop: 10 }}>
           {s.whatsapp && <IconBtn icon="chat" tone="wa" label="واتساب" href={s.whatsapp} />}
           {isManager && <IconBtn icon="user" label="تعديل بيانات الطالب" disabled={!online} onClick={() => setModal({ editS: true, f: { name: s.name, age: s.age ?? '', phone: s.phone, enrolledAt: s.enrolledAt, notes: s.notes } })} />}

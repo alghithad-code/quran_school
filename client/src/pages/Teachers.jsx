@@ -1,11 +1,11 @@
 import { useCallback, useEffect, useState } from 'react';
 import { api } from '../api.js';
-import { Empty, Icon, IconBtn, Loading, Modal, PasswordInput, initial, qs, useFlash } from '../ui.jsx';
+import { Empty, Icon, IconBtn, Loading, Modal, PasswordInput, initial, loadPageState, qs, savePageState, useFlash } from '../ui.jsx';
 import { useTeacherTools } from '../teacherTools.jsx';
 
 export default function Teachers({ online, query }) {
   const [items, setItems] = useState(null);
-  const [q, setQ] = useState('');
+  const [q, setQ] = useState(loadPageState('teachers')?.q || '');
   const [form, setForm] = useState(null);
   const [busy, setBusy] = useState(false);
   const flash = useFlash();
@@ -15,6 +15,7 @@ export default function Teachers({ online, query }) {
     try { setItems((await api('/users' + qs({ role: 'teacher', limit: 50, q, status }))).items); } catch (e) { flash.err(e); }
   }, [q, status]); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => { const t = setTimeout(load, 250); return () => clearTimeout(t); }, [load]);
+  useEffect(() => { savePageState('teachers', { q }); }, [q]);
   const tools = useTeacherTools({ online, flash, onChanged: load });
 
   async function create(e) {

@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { api } from '../api.js';
-import { ErrorBox, Icon, Loading, initial, useFlash, useLoad } from '../ui.jsx';
+import { BackLink, ErrorBox, Icon, Loading, initial, useFlash, useLoad } from '../ui.jsx';
 import { useTeacherTools } from '../teacherTools.jsx';
 import Students from './Students.jsx';
 
@@ -18,7 +18,7 @@ export default function TeacherDetail({ id, me, online }) {
 
   return (
     <div>
-      <a className="back" href="#/teachers">‹ المعلمون</a>
+      <BackLink fallback="/teachers">‹ المعلمون</BackLink>
       <div className="card tcard">
         <div className="sc-head">
           <div className="avatar">{initial(u.name)}</div>

@@ -1,6 +1,6 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { api } from '../api.js';
-import { Empty, FILTER_AR, Icon, IconBtn, Loading, Modal, Progress, STATUS_AR, fmtTime, go, initial, qs, todayStr, useFlash, useSettings } from '../ui.jsx';
+import { Empty, FILTER_AR, Icon, IconBtn, Loading, Modal, Progress, STATUS_AR, fmtTime, go, initial, loadPageState, qs, savePageState, todayStr, useFlash, useSettings } from '../ui.jsx';
 
 const blank = { name: '', age: '', phone: '', enrolledAt: todayStr(), teacherId: '', levelId: '', position: '', notes: '' };
 
@@ -11,8 +11,10 @@ export default function Students({ me, online, query, embedded = false, onFilter
   const { teachersCanAddStudents } = useSettings();
   const canAdd = isManager || !!teachersCanAddStudents;
   const myLevels = (me.levelIds || []).map(String);
-  const [q, setQ] = useState('');
+  const saved = loadPageState('students') || {}; // عند الرجوع: نص البحث وعدد ما عُرض
+  const [q, setQ] = useState(saved.q || '');
   const [page, setPage] = useState(1);
+  const restoreN = useRef(saved.n > 1 ? saved.n : 1);
   const [data, setData] = useState({ items: null, total: 0, pages: 1 });
   const [teachers, setTeachers] = useState([]);
   const [levels, setLevels] = useState([]);
@@ -33,13 +35,16 @@ export default function Students({ me, online, query, embedded = false, onFilter
 
   const load = useCallback(async (p = 1, append = false) => {
     try {
-      const d = await api('/students' + qs({ ...query, q, page: p, limit: 30 }));
+      const n = !append && p === 1 ? restoreN.current : 1;
+      restoreN.current = 1;
+      const d = await api('/students' + qs({ ...query, q, page: append ? p : 1, limit: append ? 30 : Math.min(100, 30 * n) }));
       setData((cur) => ({ ...d, items: append ? [...(cur.items || []), ...d.items] : d.items }));
-      setPage(p);
+      setPage(append ? p : n);
     } catch (e) { flash.err(e); setData((c) => ({ ...c, items: c.items || [] })); }
   }, [key, q]); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => { setSel(new Set()); const t = setTimeout(() => load(1), 250); return () => clearTimeout(t); }, [load]);
 
+  useEffect(() => { savePageState('students', { q, n: page }); }, [q, page]);
   const setFilter = (k, v) => (onFilter ? onFilter(k, v) : go('/students' + qs({ ...query, [k]: v })));
   const set = (k) => (e) => setForm((f) => ({ ...f, [k]: e.target.value }));
   const items = data.items;
@@ -187,7 +192,7 @@ export default function Students({ me, online, query, embedded = false, onFilter
           </div>
         </div>
       ))}
-      {page < data.pages && <button className="btn ghost block" onClick={() => load(page + 1, true)}>عرض المزيد ({data.total - (items?.length || 0)} متبقٍ)</button>}
+      {items && items.length < data.total && <button className="btn ghost block" onClick={() => load(page + 1, true)}>عرض المزيد ({data.total - items.length} متبقٍ)</button>}
 
       {form && (
         <Modal title="طالب جديد" onClose={() => setForm(null)}>
