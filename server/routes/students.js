@@ -120,7 +120,7 @@ router.get('/:id', async (req, res, next) => {
     const ids = enrollments.map((e) => e._id);
     const [prog, groups, transfers, changes] = await Promise.all([
       progressFor(enrollments.filter((e) => e.status === 'active'), { detail: true }),
-      Group.find({ studentIds: s._id }).select('name goalType goalText').lean(),
+      isManager(req.user) ? Group.find({ studentIds: s._id }).select('name').lean() : [],
       Transfer.find({ enrollmentId: { $in: ids } }).sort({ createdAt: -1 }).limit(20).populate('fromTeacherId toTeacherId byId', 'name').lean(),
       LevelChange.find({ enrollmentId: { $in: ids } }).sort({ createdAt: -1 }).limit(20).populate('fromLevelId toLevelId', 'name').populate('byId', 'name').lean(),
     ]);
@@ -128,7 +128,7 @@ router.get('/:id', async (req, res, next) => {
     res.json({
       student: presentStudent(s),
       enrollments: enrollments.map((e) => presentEnrollment(e, { progress: prog.get(String(e._id)) || null })),
-      groups: groups.map((g) => ({ id: String(g._id), name: g.name, goalType: g.goalType, goalText: g.goalText })),
+      groups: groups.map((g) => ({ id: String(g._id), name: g.name })),
       transfers: transfers.map((t) => ({ at: t.createdAt, level: lvName[String(t.enrollmentId)], from: t.fromTeacherId?.name, to: t.toTeacherId?.name, by: t.byId?.name })),
       levelChanges: changes.map((c) => ({ at: c.createdAt, level: lvName[String(c.enrollmentId)], type: c.type, from: c.fromLevelId?.name, to: c.toLevelId?.name, reason: c.reason, by: c.byId?.name })),
     });
