@@ -14,7 +14,7 @@ const Level = mongoose.model('Level', new Schema({
 const Group = mongoose.model('Group', (() => {
   const s = new Schema({
     name: { type: String, required: true, trim: true, maxlength: 100 },
-    goalType: { type: String, enum: ['full_review', 'surah_review', 'tajweed', 'custom'], required: true },
+    goalType: { type: String, enum: ['full_review', 'surah_review', 'tajweed', 'custom'], default: 'custom' }, // قديم: المجموعات الآن للرسائل فقط
     goalText: { type: String, default: '', maxlength: 300 },
     surahs: { type: [Number], default: [] },
     teacherIds: [oid('User')],
@@ -25,6 +25,19 @@ const Group = mongoose.model('Group', (() => {
   s.index({ teacherIds: 1 });
   return s;
 })());
+
+// رسالة جماعية لمجموعة: لقطة بأعضاء المجموعة وأرقامهم وقت الإنشاء، وحالة كل مستلم (أُرسل له أم لا)
+const GroupMessage = mongoose.model('GroupMessage', new Schema({
+  groupId: oid('Group', { required: true, index: true }),
+  text: { type: String, required: true, maxlength: 600 },
+  createdBy: oid('User'),
+  recipients: [{
+    _id: false,
+    studentId: oid('Student'), name: String, phone: String,
+    status: { type: String, enum: ['pending', 'opened', 'nophone'], default: 'pending' },
+    openedAt: Date,
+  }],
+}, { timestamps: { createdAt: true, updatedAt: false } }));
 
 const Student = mongoose.model('Student', (() => {
   const s = new Schema({
@@ -153,4 +166,4 @@ const Backup = mongoose.model('Backup', new Schema({
   counts: Schema.Types.Mixed, error: String, createdBy: oid('User'),
 }, { timestamps: { createdAt: true, updatedAt: false } }));
 
-module.exports = { Level, Group, Student, Enrollment, Attendance, Recitation, Note, Transfer, LevelChange, PromotionRequest, Notification, Setting, Backup };
+module.exports = { Level, Group, GroupMessage, Student, Enrollment, Attendance, Recitation, Note, Transfer, LevelChange, PromotionRequest, Notification, Setting, Backup };
