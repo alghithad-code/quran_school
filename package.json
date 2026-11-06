@@ -1,14 +1,17 @@
 {
   "name": "quran-school",
-  "version": "2.2.0",
+  "version": "2.4.0",
   "private": true,
   "description": "نظام إدارة مجتمع بالقرآن نحيا",
-  "engines": { "node": ">=20" },
+  "engines": {
+    "node": ">=20"
+  },
   "scripts": {
     "start": "node server/index.js",
     "dev": "node --watch server/index.js",
     "build": "npm --prefix client install --include=dev && npm --prefix client run build",
-    "test:syntax": "node --check server/index.js"
+    "test:syntax": "node --check server/index.js",
+    "import:pages": "node scripts/import-quran-pages.js"
   },
   "dependencies": {
     "bcryptjs": "^2.4.3",
