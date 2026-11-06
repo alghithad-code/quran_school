@@ -19,6 +19,7 @@ function buildApp() {
           styleSrc: ["'self'", "'unsafe-inline'", 'https://fonts.googleapis.com'],
           fontSrc: ["'self'", 'https://fonts.gstatic.com'],
           imgSrc: ["'self'", 'data:'],
+          mediaSrc: ["'self'", 'https:'], // تلاوات المصحف تُبث من مصدر خارجي بـ https (عنصر صوت فقط، لا ينفّذ شيفرة)
           connectSrc: ["'self'"],
           frameAncestors: ["'none'"],
         },
@@ -50,6 +51,7 @@ function buildApp() {
     res.status(dbOk ? 200 : 503).json({ ok: dbOk, db: dbOk ? 'connected' : 'disconnected' });
   });
 
+  app.use('/api/public/mushaf', require('./routes/mushafPublic')); // عام: قراءة فقط، بلا جلسة
   app.use('/api/auth', require('./routes/auth'));
   app.use('/api/users', require('./routes/users'));
   const { studentRecords, enrollmentRecords, recordEdit, bulkAttendance } = require('./routes/records');
@@ -62,6 +64,8 @@ function buildApp() {
   app.use('/api/transfers', require('./routes/transfers'));
   app.use('/api/levels', require('./routes/levels'));
   app.use('/api/quran', require('./routes/quran'));
+  app.use('/api/mushaf', require('./routes/mushafProgress'));
+  app.use('/api/readers', require('./routes/readers'));
   app.use('/api/groups', require('./routes/groups'));
   app.use('/api/promotions', require('./routes/promotions'));
   app.use('/api/notifications', require('./routes/notifications'));

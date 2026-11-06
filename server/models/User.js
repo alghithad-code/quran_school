@@ -12,6 +12,16 @@ const userSchema = new mongoose.Schema(
     status: { type: String, enum: STATUSES, default: 'active', index: true },
     passwordHash: { type: String, required: true, select: false },
     levelIds: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Level' }], // تُستخدم في المرحلة 5
+    // موضع قراءة المصحف وإعداداته (لا يمس بيانات الطلاب)
+    mushaf: {
+      type: new mongoose.Schema({
+        surah: Number, ayah: Number,
+        readerId: { type: mongoose.Schema.Types.ObjectId, default: null },
+        fontSize: Number, speed: Number, hide: Boolean,
+        updatedAt: Date,
+      }, { _id: false }),
+      default: undefined,
+    },
     failedLogins: { type: Number, default: 0 },
     lockUntil: { type: Date, default: null },
     lastLoginAt: { type: Date, default: null },

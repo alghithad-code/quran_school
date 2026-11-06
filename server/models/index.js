@@ -166,4 +166,14 @@ const Backup = mongoose.model('Backup', new Schema({
   counts: Schema.Types.Mixed, error: String, createdBy: oid('User'),
 }, { timestamps: { createdAt: true, updatedAt: false } }));
 
-module.exports = { Level, Group, GroupMessage, Student, Enrollment, Attendance, Recitation, Note, Transfer, LevelChange, PromotionRequest, Notification, Setting, Backup };
+// قارئ للمصحف الشريف: urlTemplate رابط ملف الآية الواحدة ويحوي {s} رقم السورة و{a} رقم الآية (3 خانات: 001)
+const Reader = mongoose.model('Reader', new Schema({
+  name: { type: String, required: true, trim: true, maxlength: 80 },
+  urlTemplate: { type: String, required: true, maxlength: 300 },
+  enabled: { type: Boolean, default: true },
+  builtin: { type: Boolean, default: false },
+  order: { type: Number, default: 0, index: true },
+  createdBy: oid('User'),
+}, { timestamps: true }));
+
+module.exports = { Reader, Level, Group, GroupMessage, Student, Enrollment, Attendance, Recitation, Note, Transfer, LevelChange, PromotionRequest, Notification, Setting, Backup };

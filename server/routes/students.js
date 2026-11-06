@@ -1,7 +1,7 @@
 const express = require('express');
 const mongoose = require('mongoose');
 const { z } = require('zod');
-const { Student, Enrollment, Attendance, Level, Transfer, LevelChange, Group } = require('../models');
+const { Student, Enrollment, Attendance, Recitation, Note, Level, Transfer, LevelChange, Group, PromotionRequest } = require('../models');
 const User = require('../models/User');
 const { requireAuth, requireRole } = require('../middleware/auth');
 const { loadStudent, enrollmentScope, isManager } = require('../lib/access');
@@ -10,7 +10,7 @@ const { progressFor } = require('../lib/progress');
 const { notify, managerIds } = require('../lib/notify');
 const { getSettings } = require('../lib/settings');
 const { audit } = require('../utils/audit');
-const { normalizeSaudiPhone, whatsappLink } = require('../utils/phone');
+const { normalizePhone, whatsappLink, PHONE_MESSAGE } = require('../utils/phone');
 const { todayStr, isDateStr } = require('../utils/dates');
 
 const router = express.Router();
@@ -89,8 +89,8 @@ router.post('/', async (req, res, next) => {
     const p = createSchema.safeParse(byManager ? req.body : { ...req.body, teacherId: String(req.user._id) });
     if (!p.success) return res.status(400).json({ error: p.error.issues[0].message });
     const d = p.data;
-    const phone = normalizeSaudiPhone(d.phone);
-    if (phone === null) return res.status(400).json({ error: 'رقم الهاتف غير صحيح، مثال: 05XXXXXXXX' });
+    const phone = normalizePhone(d.phone);
+    if (phone === null) return res.status(400).json({ error: PHONE_MESSAGE });
     const enrolledAt = d.enrolledAt || todayStr();
     if (!isDateStr(enrolledAt)) return res.status(400).json({ error: 'تاريخ الالتحاق غير صحيح' });
     const teacher = await User.findOne({ _id: d.teacherId, role: 'teacher', status: 'active' });
@@ -125,9 +125,17 @@ router.get('/:id', async (req, res, next) => {
       LevelChange.find({ enrollmentId: { $in: ids } }).sort({ createdAt: -1 }).limit(20).populate('fromLevelId toLevelId', 'name').populate('byId', 'name').lean(),
     ]);
     const lvName = Object.fromEntries(enrollments.map((e) => [String(e._id), e.levelId?.name]));
+    const cnt = new Map();
+    for (const M of [Attendance, Recitation, Note]) {
+      const rows = await M.aggregate([{ $match: { enrollmentId: { $in: ids } } }, { $group: { _id: '$enrollmentId', n: { $sum: 1 } } }]);
+      rows.forEach((r) => cnt.set(String(r._id), (cnt.get(String(r._id)) || 0) + r.n));
+    }
+    // يُسمح بحذف الطالب نهائياً فقط إن لم تكن له أي سجلات في أي تسجيل (للمشرف والمدير)
+    const canDelete = isManager(req.user) && !(await Attendance.exists({ studentId: s._id })) && !(await Recitation.exists({ studentId: s._id })) && !(await Note.exists({ studentId: s._id }));
     res.json({
       student: presentStudent(s),
-      enrollments: enrollments.map((e) => presentEnrollment(e, { progress: prog.get(String(e._id)) || null })),
+      enrollments: enrollments.map((e) => presentEnrollment(e, { progress: prog.get(String(e._id)) || null, records: cnt.get(String(e._id)) || 0 })),
+      canDelete,
       groups: groups.map((g) => ({ id: String(g._id), name: g.name })),
       transfers: transfers.map((t) => ({ at: t.createdAt, level: lvName[String(t.enrollmentId)], from: t.fromTeacherId?.name, to: t.toTeacherId?.name, by: t.byId?.name })),
       levelChanges: changes.map((c) => ({ at: c.createdAt, level: lvName[String(c.enrollmentId)], type: c.type, from: c.fromLevelId?.name, to: c.toLevelId?.name, reason: c.reason, by: c.byId?.name })),
@@ -153,8 +161,8 @@ router.patch('/:id', manager, async (req, res, next) => {
     const d = p.data;
     const before = { name: s.name, age: s.age, phone: s.phone, enrolledAt: s.enrolledAt, notes: s.notes };
     if (d.phone !== undefined) {
-      const ph = normalizeSaudiPhone(d.phone);
-      if (ph === null) return res.status(400).json({ error: 'رقم الهاتف غير صحيح، مثال: 05XXXXXXXX' });
+      const ph = normalizePhone(d.phone);
+      if (ph === null) return res.status(400).json({ error: PHONE_MESSAGE });
       s.phone = ph;
     }
     if (d.enrolledAt !== undefined) {
@@ -202,6 +210,31 @@ router.post('/:id/enrollments', manager, async (req, res, next) => {
     await audit(req, 'student.enrollment_add', { targetType: 'student', target: s, details: { level: level.name, teacher: teacher.name } });
     await notify([teacher._id], { type: 'student.assigned', title: 'طالب جديد', body: `سُجّل الطالب ${s.name} عندك في ${level.name}`, link: `/students/${s._id}` });
     res.status(201).json({ enrollmentId: String(e._id) });
+  } catch (err) { next(err); }
+});
+
+// حذف طالب أُضيف بالخطأ: فقط إن لم تكن له أي سجلات. غير ذلك: الأرشفة.
+router.delete('/:id', manager, async (req, res, next) => {
+  try {
+    const s = await loadStudent(req, res);
+    if (!s) return;
+    if ((await Attendance.exists({ studentId: s._id })) || (await Recitation.exists({ studentId: s._id })) || (await Note.exists({ studentId: s._id }))) {
+      return res.status(400).json({ error: 'لا يمكن حذف طالب له سجلات (حضور أو تسميع أو ملاحظات). استخدم الأرشفة فتبقى سجلاته.' });
+    }
+    const session = await mongoose.startSession();
+    try {
+      await session.withTransaction(async () => {
+        const q = { studentId: s._id };
+        await Enrollment.deleteMany(q, { session });
+        await LevelChange.deleteMany(q, { session });
+        await Transfer.deleteMany(q, { session });
+        await PromotionRequest.deleteMany(q, { session });
+        await Group.updateMany({ studentIds: s._id }, { $pull: { studentIds: s._id } }, { session });
+        await Student.deleteOne({ _id: s._id }, { session });
+      });
+    } finally { await session.endSession(); }
+    await audit(req, 'student.delete', { targetType: 'student', target: s, details: { name: s.name, phone: s.phone } });
+    res.json({ ok: true });
   } catch (err) { next(err); }
 });
 

@@ -6,7 +6,7 @@ const User = require('../models/User');
 const { Enrollment, Level } = require('../models');
 const { requireAuth, requireRole } = require('../middleware/auth');
 const { audit } = require('../utils/audit');
-const { normalizeSaudiPhone, whatsappLink } = require('../utils/phone');
+const { normalizePhone, whatsappLink, PHONE_MESSAGE } = require('../utils/phone');
 const { isValidPassword, PASSWORD_MESSAGE } = require('../utils/password');
 
 const router = express.Router();
@@ -108,8 +108,8 @@ router.post('/', async (req, res, next) => {
     const d = parsed.data;
     if (!canCreateRole(req.user, d.role)) return res.status(403).json({ error: 'لا تملك صلاحية إنشاء هذا النوع من الحسابات' });
 
-    const phone = normalizeSaudiPhone(d.phone);
-    if (phone === null) return res.status(400).json({ error: 'رقم الجوال غير صحيح، مثال: 05XXXXXXXX' });
+    const phone = normalizePhone(d.phone);
+    if (phone === null) return res.status(400).json({ error: PHONE_MESSAGE });
 
     if (await User.exists({ username: d.username })) return res.status(409).json({ error: 'اسم المستخدم مستخدم مسبقاً' });
 
@@ -162,8 +162,8 @@ router.patch('/:id', async (req, res, next) => {
     const before = { name: target.name, username: target.username, phone: target.phone };
 
     if (d.phone !== undefined) {
-      const phone = normalizeSaudiPhone(d.phone);
-      if (phone === null) return res.status(400).json({ error: 'رقم الجوال غير صحيح، مثال: 05XXXXXXXX' });
+      const phone = normalizePhone(d.phone);
+      if (phone === null) return res.status(400).json({ error: PHONE_MESSAGE });
       target.phone = phone;
     }
     if (d.username && d.username !== target.username) {

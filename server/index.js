@@ -15,6 +15,7 @@ async function main() {
     try { await m.init(); } catch (err) { console.error(`فهرس ${m.modelName}:`, err.message); }
   }
   await bootstrapAdmin();
+  try { await require('./lib/readers').seedReaders(); } catch (err) { console.error('قراء المصحف:', err.message); }
 
   require('./lib/jobs').start();
   const app = buildApp();
