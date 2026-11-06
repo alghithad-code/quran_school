@@ -123,6 +123,7 @@ export default function Students({ me, online, query, embedded = false, onFilter
       <div className="chips">
         {query.filter && <button className="chip on" onClick={() => setFilter('filter', '')}>{FILTER_AR[query.filter]} ✕</button>}
         <button className={'chip' + (query.today === '1' ? ' on' : '')} onClick={() => setFilter('today', query.today === '1' ? '' : '1')}>موعدهم اليوم</button>
+        {isManager && !embedded && !query.filter && <button className="chip" onClick={() => setFilter('filter', 'no_active')}>بلا تسجيل نشط</button>}
         <select className="chip" value={query.status || 'active'} onChange={(e) => setFilter('status', e.target.value === 'active' ? '' : e.target.value)}>
           <option value="active">النشطون</option><option value="paused">المتوقفون</option><option value="archived">المؤرشفون</option><option value="all">الكل</option>
         </select>
@@ -166,7 +167,9 @@ export default function Students({ me, online, query, embedded = false, onFilter
             {s.status !== 'active' && <span className="tag bad">{STATUS_AR[s.status]}</span>}
           </div>
 
-          {s.enrollments.length === 0 && <div className="small muted">لا توجد تسجيلات ظاهرة لك</div>}
+          {s.enrollments.length === 0 && (isManager
+            ? <div className="small"><span className="tag warn">بلا تسجيل نشط</span> <span className="muted">افتح ملفه واضغط «مستوى» لتسجيله من جديد.</span></div>
+            : <div className="small muted">لا توجد تسجيلات ظاهرة لك</div>)}
           {s.enrollments.map((e) => (
             <div className="enr" key={e.id}>
               <div className="metas">
@@ -203,7 +206,7 @@ export default function Students({ me, online, query, embedded = false, onFilter
             ) : <p className="small muted">سيُسجَّل الطالب عندك.</p>}
             <label>المستوى<select value={form.levelId} onChange={set('levelId')}><option value="">بلا مستوى</option>{(isManager ? levels : levels.filter((l) => myLevels.includes(String(l.id)))).map((l) => <option key={l.id} value={l.id}>{l.name}</option>)}</select></label>
             <label>العمر<input type="number" inputMode="numeric" min="3" max="100" value={form.age} onChange={set('age')} /></label>
-            <label>رقم الهاتف (اختياري)<input dir="ltr" inputMode="tel" placeholder="05XXXXXXXX" value={form.phone} onChange={set('phone')} /></label>
+            <label>رقم الهاتف (اختياري)<input dir="ltr" inputMode="tel" placeholder="05XXXXXXXX أو 7XXXXXXXX أو +20…" value={form.phone} onChange={set('phone')} /><small className="small muted">سعودي: 05XXXXXXXX · يمني: 7XXXXXXXX · غيرهما: مع مفتاح الدولة مثل +20…</small></label>
             <label>تاريخ الالتحاق<input type="date" max={todayStr()} value={form.enrolledAt} onChange={set('enrolledAt')} /></label>
             <label>موضع الحفظ الحالي<input value={form.position} onChange={set('position')} /></label>
             <label>ملاحظات<input value={form.notes} onChange={set('notes')} /></label>
@@ -218,7 +221,7 @@ export default function Students({ me, online, query, embedded = false, onFilter
           <form onSubmit={saveStudent}>
             <label>الاسم<input value={editS.name} onChange={(e) => setEditS({ ...editS, name: e.target.value })} required /></label>
             <label>العمر<input type="number" min="3" max="100" value={editS.age} onChange={(e) => setEditS({ ...editS, age: e.target.value })} /></label>
-            <label>الهاتف<input dir="ltr" value={editS.phone} onChange={(e) => setEditS({ ...editS, phone: e.target.value })} /></label>
+            <label>الهاتف<input dir="ltr" inputMode="tel" placeholder="05XXXXXXXX أو 7XXXXXXXX أو +20…" value={editS.phone} onChange={(e) => setEditS({ ...editS, phone: e.target.value })} /><small className="small muted">سعودي: 05XXXXXXXX · يمني: 7XXXXXXXX · غيرهما: مع مفتاح الدولة مثل +20…</small></label>
             <label>تاريخ الالتحاق<input type="date" value={editS.enrolledAt} onChange={(e) => setEditS({ ...editS, enrolledAt: e.target.value })} /></label>
             <label>ملاحظات عامة<input value={editS.notes} onChange={(e) => setEditS({ ...editS, notes: e.target.value })} /></label>
             <button className="btn block" disabled={busy}>حفظ</button>

@@ -67,7 +67,7 @@ export default function Users({ me, online, query }) {
             <label>النوع<select value={form.role} onChange={set(setForm)('role')}><option value="supervisor">مشرف</option><option value="admin">مدير نظام (صلاحيات كاملة)</option></select></label>
             <label>الاسم<input value={form.name} onChange={set(setForm)('name')} required /></label>
             <label>اسم المستخدم<input dir="ltr" value={form.username} onChange={set(setForm)('username')} required /></label>
-            <label>رقم الجوال (اختياري)<input dir="ltr" inputMode="tel" placeholder="05XXXXXXXX" value={form.phone} onChange={set(setForm)('phone')} /></label>
+            <label>رقم الجوال (اختياري)<input dir="ltr" inputMode="tel" placeholder="05XXXXXXXX أو 7XXXXXXXX أو +20…" value={form.phone} onChange={set(setForm)('phone')} /><small className="small muted">سعودي: 05XXXXXXXX · يمني: 7XXXXXXXX · غيرهما: مع مفتاح الدولة مثل +20…</small></label>
             <label>كلمة المرور (6 أحرف على الأقل، حروف وأرقام)<PasswordInput minLength={6} value={form.password} onChange={set(setForm)('password')} required /></label>
             <button className="btn block" disabled={busy}>{busy ? 'جارٍ الحفظ…' : 'حفظ'}</button>
           </form>
@@ -78,7 +78,7 @@ export default function Users({ me, online, query }) {
           <form onSubmit={async (e) => { e.preventDefault(); const { id, name, username, phone } = edit; if (await run(() => api('/users/' + id, { method: 'PATCH', body: { name, username, phone } }), 'تم حفظ التعديل')) setEdit(null); }}>
             <label>الاسم<input value={edit.name} onChange={set(setEdit)('name')} required /></label>
             <label>اسم المستخدم<input dir="ltr" value={edit.username} onChange={set(setEdit)('username')} required /></label>
-            <label>رقم الجوال<input dir="ltr" inputMode="tel" value={edit.phone} onChange={set(setEdit)('phone')} /></label>
+            <label>رقم الجوال<input dir="ltr" inputMode="tel" placeholder="05XXXXXXXX أو 7XXXXXXXX أو +20…" value={edit.phone} onChange={set(setEdit)('phone')} /><small className="small muted">سعودي: 05XXXXXXXX · يمني: 7XXXXXXXX · غيرهما: مع مفتاح الدولة مثل +20…</small></label>
             <button className="btn block" disabled={busy}>حفظ</button>
           </form>
         </Modal>

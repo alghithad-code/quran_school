@@ -138,10 +138,12 @@ export default function StudentDetail({ id, me, online }) {
           <IconBtn icon="file" tone="gold" label="تقرير الطالب" onClick={() => go('/reports' + qs({ type: 'student', id: s.id }))} />
           {isManager && <IconBtn icon="plus" tone="ok" caption="مستوى" label="تسجيل الطالب في مستوى إضافي" disabled={!online} onClick={() => setModal({ addE: true, f: { levelId: '', teacherId: '', position: '' } })} />}
           {isManager && <IconBtn icon="power" tone="danger" label="حالة الطالب (إيقاف/أرشفة)" disabled={!online} onClick={() => setModal({ sstatus: true, value: s.status })} />}
+          {info.data.canDelete && <IconBtn icon="trash" tone="danger" label="حذف الطالب نهائياً (أُضيف بالخطأ)" disabled={!online} onClick={() => setModal({ delStudent: true })} />}
         </div>
       </div>
       {flash.node}
 
+      {isManager && !enrollments.some((e) => e.status === 'active') && <div className="alert">الطالب بلا تسجيل نشط. اضغط «مستوى» لتسجيله في مستوى، أو أعد تسجيله من تبويب مستوى سابق.</div>}
       {enrollments.length === 0 && <p className="muted center">لا توجد تسجيلات ظاهرة لك</p>}
       {enrollments.length > 0 && (
         <div className="chips">
@@ -165,7 +167,8 @@ export default function StudentDetail({ id, me, online }) {
               {!isManager && active && <IconBtn icon="arrowup" label="طلب ترقية" disabled={!online} onClick={() => setModal({ promo: true, note: '' })} />}
               {isManager && <IconBtn icon="repeat" label="نقل هذا المستوى إلى معلم آخر" disabled={!online || cur.status !== 'active'} onClick={() => setModal({ transfer: true, to: '' })} />}
               {isManager && <IconBtn icon="layers" label="تغيير المستوى" disabled={!online || cur.status !== 'active'} onClick={() => setModal({ level: true, levelId: '', reason: '' })} />}
-              {isManager && <IconBtn icon="power" tone={cur.status === 'active' ? 'danger' : 'ok'} label={cur.status === 'active' ? 'إنهاء التسجيل في هذا المستوى' : 'إعادة تفعيل التسجيل'} disabled={!online} onClick={() => setModal({ estatus: true })} />}
+              {isManager && <IconBtn icon={cur.status === 'active' ? 'logout' : 'restore'} tone={cur.status === 'active' ? 'danger' : 'ok'} caption={cur.status === 'active' ? 'إخراج من المستوى' : 'إعادة التسجيل'} label={cur.status === 'active' ? 'إخراج الطالب من هذا المستوى' : 'إعادة تسجيل الطالب في هذا المستوى'} disabled={!online} onClick={() => setModal({ estatus: true })} />}
+              {isManager && cur.records === 0 && <IconBtn icon="trash" tone="danger" label="حذف هذا التسجيل نهائياً (أُضيف بالخطأ)" disabled={!online} onClick={() => setModal({ delEnr: true })} />}
             </div>
           </div>
 
@@ -243,7 +246,7 @@ export default function StudentDetail({ id, me, online }) {
           <form onSubmit={(e) => { e.preventDefault(); call(() => api('/students/' + id, { method: 'PATCH', body: modal.f }), 'تم حفظ التعديل'); }}>
             <label>الاسم<input value={modal.f.name} onChange={(e) => setModal({ ...modal, f: { ...modal.f, name: e.target.value } })} required /></label>
             <label>العمر<input type="number" min="3" max="100" value={modal.f.age} onChange={(e) => setModal({ ...modal, f: { ...modal.f, age: e.target.value } })} /></label>
-            <label>الهاتف<input dir="ltr" value={modal.f.phone} onChange={(e) => setModal({ ...modal, f: { ...modal.f, phone: e.target.value } })} /></label>
+            <label>الهاتف<input dir="ltr" inputMode="tel" placeholder="05XXXXXXXX أو 7XXXXXXXX أو +20…" value={modal.f.phone} onChange={(e) => setModal({ ...modal, f: { ...modal.f, phone: e.target.value } })} /><small className="small muted">سعودي: 05XXXXXXXX · يمني: 7XXXXXXXX · غيرهما: مع مفتاح الدولة مثل +20…</small></label>
             <label>تاريخ الالتحاق<input type="date" value={modal.f.enrolledAt} onChange={(e) => setModal({ ...modal, f: { ...modal.f, enrolledAt: e.target.value } })} /></label>
             <label>ملاحظات عامة<input value={modal.f.notes} onChange={(e) => setModal({ ...modal, f: { ...modal.f, notes: e.target.value } })} /></label>
             <button className="btn block" disabled={busy}>حفظ</button>
@@ -313,9 +316,26 @@ export default function StudentDetail({ id, me, online }) {
       )}
 
       {modal?.estatus && cur && (
-        <Modal title={cur.status === 'active' ? 'إنهاء التسجيل في المستوى' : 'إعادة تفعيل التسجيل'} onClose={() => setModal(null)}>
-          <p className="small muted">{cur.status === 'active' ? `سينتهي تسجيل الطالب في «${lvName(cur)}» وتبقى كل سجلاته وتقاريره. لا يمكن إنهاء آخر تسجيل نشط (استخدم حالة الطالب).` : `سيعود تسجيل الطالب في «${lvName(cur)}» نشطاً.`}</p>
+        <Modal title={cur.status === 'active' ? 'إخراج من المستوى' : 'إعادة التسجيل في المستوى'} onClose={() => setModal(null)}>
+          <p className="small muted">{cur.status === 'active' ? `سيُخرَج الطالب من «${lvName(cur)}»: يختفي من قوائم معلمه ويفقد المعلم الوصول إليه، وتبقى كل سجلاته وتقاريره عند المشرف والمدير، ويمكنك إعادة تسجيله لاحقاً. بقية مستوياته لا تتأثر.${enrollments.filter((e) => e.status === 'active').length <= 1 ? ' هذا آخر مستوى نشط له، فسيظهر بوسم «بلا تسجيل نشط».' : ''}` : `سيعود تسجيل الطالب في «${lvName(cur)}» نشطاً عند معلمه ${cur.teacher.name || ''}.`}</p>
           <button className="btn block" disabled={busy} onClick={() => call(() => api(`/enrollments/${cur.id}/status`, { method: 'POST', body: { status: cur.status === 'active' ? 'ended' : 'active' } }), 'تم التحديث')}>تأكيد</button>
+        </Modal>
+      )}
+
+      {modal?.delEnr && cur && (
+        <Modal title="حذف التسجيل نهائياً" onClose={() => setModal(null)}>
+          <p className="small muted">سيُحذف تسجيل الطالب في «{lvName(cur)}» نهائياً ولا يمكن التراجع. يُسمح بذلك لأنه بلا أي حضور أو تسميع أو ملاحظات. إن أردت إبقاء السجل استخدم «إخراج من المستوى».</p>
+          <button className="btn block danger" disabled={busy} onClick={() => call(() => api('/enrollments/' + cur.id, { method: 'DELETE' }), 'تم حذف التسجيل')}>تأكيد الحذف النهائي</button>
+        </Modal>
+      )}
+
+      {modal?.delStudent && (
+        <Modal title="حذف الطالب نهائياً" onClose={() => setModal(null)}>
+          <p className="small muted">سيُحذف الطالب «{s.name}» وكل تسجيلاته ومواضعه في المجموعات نهائياً ولا يمكن التراجع. يُسمح بذلك لأنه بلا أي حضور أو تسميع أو ملاحظات. إن أردت إبقاء بياناته استخدم الأرشفة.</p>
+          <button className="btn block danger" disabled={busy} onClick={async () => {
+            setBusy(true); flash.clear();
+            try { await api('/students/' + id, { method: 'DELETE' }); setModal(null); setTimeout(() => go('/students'), 150); } catch (e) { flash.err(e); setBusy(false); }
+          }}>تأكيد الحذف النهائي</button>
         </Modal>
       )}
 

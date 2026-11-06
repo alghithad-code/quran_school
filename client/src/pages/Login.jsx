@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { api } from '../api.js';
-import { Logo, PasswordInput } from '../ui.jsx';
+import { Icon, Logo, PasswordInput } from '../ui.jsx';
 
 export default function Login({ onLogin, online }) {
   const [username, setUsername] = useState('');
@@ -30,6 +30,7 @@ export default function Login({ onLogin, online }) {
         {error && <div className="alert">{error}</div>}
         <button className="btn block" disabled={busy || !online}>{busy ? 'جارٍ الدخول…' : 'دخول'}</button>
       </form>
+      <a className="btn ghost block" style={{ maxWidth: 400, margin: '0 auto' }} href="#/mushaf"><Icon name="bookopen" size={22} /> المصحف الشريف</a>
     </div>
   );
 }

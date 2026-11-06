@@ -57,7 +57,7 @@ export default function Teachers({ online, query }) {
           <form onSubmit={create}>
             <label>الاسم<input value={form.name} onChange={set('name')} required /></label>
             <label>اسم المستخدم<input dir="ltr" value={form.username} onChange={set('username')} required /></label>
-            <label>رقم الجوال (اختياري)<input dir="ltr" inputMode="tel" placeholder="05XXXXXXXX" value={form.phone} onChange={set('phone')} /></label>
+            <label>رقم الجوال (اختياري)<input dir="ltr" inputMode="tel" placeholder="05XXXXXXXX أو 7XXXXXXXX أو +20…" value={form.phone} onChange={set('phone')} /><small className="small muted">سعودي: 05XXXXXXXX · يمني: 7XXXXXXXX · غيرهما: مع مفتاح الدولة مثل +20…</small></label>
             <label>كلمة المرور (6 أحرف على الأقل، حروف وأرقام)<PasswordInput minLength={6} value={form.password} onChange={set('password')} required /></label>
             <button className="btn block" disabled={busy}>{busy ? 'جارٍ الحفظ…' : 'حفظ'}</button>
           </form>

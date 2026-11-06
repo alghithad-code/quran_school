@@ -19,8 +19,10 @@ import Notifications from './pages/Notifications.jsx';
 import Audit from './pages/Audit.jsx';
 import Admin from './pages/Admin.jsx';
 import More from './pages/More.jsx';
+import Mushaf, { PublicMushaf } from './pages/Mushaf.jsx';
+import Readers from './pages/Readers.jsx';
 
-const TITLES = { '': 'الرئيسية', students: 'الطلاب', users: 'المشرفون والمديرون', teachers: 'المعلمون', groups: 'المجموعات', levels: 'المستويات', promotions: 'طلبات الترقية', reports: 'التقارير', notifications: 'الإشعارات', audit: 'سجل العمليات', admin: 'الإعدادات والنسخ', more: 'حسابي' };
+const TITLES = { mushaf: 'المصحف الشريف', readers: 'قراء المصحف', '': 'الرئيسية', students: 'الطلاب', users: 'المشرفون والمديرون', teachers: 'المعلمون', groups: 'المجموعات', levels: 'المستويات', promotions: 'طلبات الترقية', reports: 'التقارير', notifications: 'الإشعارات', audit: 'سجل العمليات', admin: 'الإعدادات والنسخ', more: 'حسابي' };
 
 export default function App() {
   const [user, setUser] = useState(null);
@@ -66,6 +68,7 @@ export default function App() {
   }
 
   if (!ready) return <div className="center muted">جارٍ التحميل…</div>;
+  if (!user && path.split('/').filter(Boolean)[0] === 'mushaf') return <PublicMushaf online={online} />; // المصحف عام: بلا تسجيل دخول
   if (!user) return <Login onLogin={(d) => { setCsrf(d.csrfToken); loadSession(d.user); }} online={online} />;
 
   const isManager = user.role !== 'teacher';
@@ -88,6 +91,8 @@ export default function App() {
     case 'notifications': page = <Notifications onChange={refreshUnread} />; break;
     case 'audit': page = isManager ? <Audit /> : <Home user={user} />; break;
     case 'admin': page = user.role === 'admin' ? <Admin online={online} /> : <Home user={user} />; break;
+    case 'mushaf': page = <Mushaf authed online={online} />; break;
+    case 'readers': page = user.role === 'admin' ? <Readers online={online} /> : <Home user={user} />; break;
     case 'more': page = <More online={online} onLogout={logout} />; break;
     default: page = <Home user={user} />;
   }
@@ -101,8 +106,10 @@ export default function App() {
     isManager && ['groups', 'grid', 'المجموعات'],
     ['promotions', 'up', 'طلبات الترقية'],
     ['reports', 'chart', 'التقارير'],
+    ['mushaf', 'bookopen', 'المصحف الشريف'],
     ['notifications', 'bell', 'الإشعارات'],
     isManager && ['audit', 'shield', 'سجل العمليات'],
+    user.role === 'admin' && ['readers', 'volume', 'قراء المصحف'],
     user.role === 'admin' && ['admin', 'sliders', 'الإعدادات والنسخ'],
     ['more', 'lock', 'حسابي وكلمة المرور'],
   ].filter(Boolean);

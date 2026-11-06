@@ -135,10 +135,11 @@ export const ACTION_AR = {
   'user.create': 'إنشاء حساب', 'user.update': 'تعديل حساب', 'user.suspend': 'إيقاف حساب', 'user.activate': 'تنشيط حساب', 'user.reset_password': 'إعادة تعيين كلمة مرور', 'user.change_password': 'تغيير كلمة المرور',
   'student.create': 'إضافة طالب', 'student.update': 'تعديل طالب', 'student.status': 'تغيير حالة طالب', 'student.schedule': 'تعديل جدول طالب', 'student.transfer': 'نقل طالب', 'student.transfer_bulk': 'نقل جماعي',
   'student.level_assign': 'تعيين مستوى', 'student.level_promotion': 'ترقية طالب', 'student.level_demotion': 'خفض مستوى طالب',
-  'attendance.create': 'تسجيل حضور', 'attendance.bulk': 'تحضير جماعي', 'enrollment.update': 'تعديل موضع/ملاحظات مستوى', 'student.enrollment_add': 'تسجيل في مستوى إضافي', 'student.enrollment_status': 'إنهاء/تفعيل تسجيل مستوى', 'group.create': 'إضافة مجموعة', 'group.update': 'تعديل مجموعة', 'group.delete': 'حذف مجموعة', 'group.members': 'تعديل أعضاء مجموعة', 'group.message': 'رسالة جماعية لمجموعة', 'attendance.update': 'تعديل حضور', 'recitation.create': 'تسجيل حفظ/مراجعة', 'recitation.update': 'تعديل حفظ/مراجعة', 'note.create': 'إضافة ملاحظة', 'note.update': 'تعديل ملاحظة',
+  'attendance.create': 'تسجيل حضور', 'attendance.bulk': 'تحضير جماعي', 'enrollment.update': 'تعديل موضع/ملاحظات مستوى', 'student.enrollment_add': 'تسجيل في مستوى إضافي', 'student.enrollment_status': 'إخراج من مستوى / إعادة تسجيل', 'student.enrollment_delete': 'حذف تسجيل مستوى', 'student.delete': 'حذف طالب', 'group.create': 'إضافة مجموعة', 'group.update': 'تعديل مجموعة', 'group.delete': 'حذف مجموعة', 'group.members': 'تعديل أعضاء مجموعة', 'group.message': 'رسالة جماعية لمجموعة', 'attendance.update': 'تعديل حضور', 'recitation.create': 'تسجيل حفظ/مراجعة', 'recitation.update': 'تعديل حفظ/مراجعة', 'note.create': 'إضافة ملاحظة', 'note.update': 'تعديل ملاحظة',
   'level.create': 'إضافة مستوى', 'level.update': 'تعديل مستوى', 'level.delete': 'حذف مستوى', 'level.reorder': 'ترتيب المستويات', 'level.assign_teacher': 'ربط معلم بمستويات',
   'promotion.request': 'طلب ترقية', 'promotion.approve': 'قبول ترقية', 'promotion.reject': 'رفض ترقية',
   'settings.update': 'تعديل الإعدادات', 'backup.create': 'إنشاء نسخة احتياطية', 'backup.download': 'تنزيل نسخة', 'backup.upload': 'رفع نسخة', 'audit.cleanup': 'تنظيف سجل العمليات',
+  'reader.create': 'إضافة قارئ للمصحف', 'reader.update': 'تعديل قارئ', 'reader.delete': 'حذف قارئ',
 };
 
 // يحوّل رابط الإشعار القادم من الخادم إلى مسار الواجهة
@@ -187,7 +188,7 @@ export function PasswordInput(props) {
 export const linkTo = (l) => (l ? '#' + l : '#/');
 
 export const todayStr = () => new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Riyadh', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date());
-export const FILTER_AR = { present_today: 'حاضرون اليوم', absent_today: 'غائبون اليوم', no_eval_today: 'بلا تقييم اليوم', frequent_absent: 'كثيرو الغياب' };
+export const FILTER_AR = { present_today: 'حاضرون اليوم', absent_today: 'غائبون اليوم', no_eval_today: 'بلا تقييم اليوم', frequent_absent: 'كثيرو الغياب', no_active: 'بلا تسجيل نشط' };
 
 // ---------- أيقونات رسومية (خطية) وشعار ----------
 const ICONS = {
@@ -225,6 +226,14 @@ const ICONS = {
   download: ['M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4', 'M7 10l5 5 5-5', 'M12 15V3'],
   restore: ['M1 4v6h6', 'M3.51 15a9 9 0 1 0 2.13-9.36L1 10'],
   upload: ['M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4', 'M17 8l-5-5-5 5', 'M12 3v12'],
+  bookopen: ['M12 7v14', 'M3 18a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1h5a4 4 0 0 1 4 4 4 4 0 0 1 4-4h5a1 1 0 0 1 1 1v13a1 1 0 0 1-1 1h-6a3 3 0 0 0-3 3 3 3 0 0 0-3-3z'],
+  play: ['M6 4l14 8-14 8V4z'],
+  pause: ['M7 4h3v16H7z', 'M14 4h3v16h-3z'],
+  stop: ['M6 6h12v12H6z'],
+  chevR: ['M9 18l6-6-6-6'],
+  chevL: ['M15 18l-6-6 6-6'],
+  volume: ['M11 5L6 9H2v6h4l5 4V5z', 'M15.54 8.46a5 5 0 0 1 0 7.07'],
+  search: ['M11 19a8 8 0 1 0 0-16 8 8 0 0 0 0 16z', 'M21 21l-4.35-4.35'],
 };
 export function Icon({ name, size = 22 }) {
   return (

@@ -48,7 +48,7 @@ export function useTeacherTools({ online, flash, onChanged }) {
           <form onSubmit={async (e) => { e.preventDefault(); const { id, name, username, phone } = edit; if (await run(() => api('/users/' + id, { method: 'PATCH', body: { name, username, phone } }), 'تم حفظ التعديل')) setEdit(null); }}>
             <label>الاسم<input value={edit.name} onChange={(e) => setEdit({ ...edit, name: e.target.value })} required /></label>
             <label>اسم المستخدم<input dir="ltr" value={edit.username} onChange={(e) => setEdit({ ...edit, username: e.target.value })} required /></label>
-            <label>رقم الجوال<input dir="ltr" inputMode="tel" placeholder="05XXXXXXXX" value={edit.phone} onChange={(e) => setEdit({ ...edit, phone: e.target.value })} /></label>
+            <label>رقم الجوال<input dir="ltr" inputMode="tel" placeholder="05XXXXXXXX أو 7XXXXXXXX أو +20…" value={edit.phone} onChange={(e) => setEdit({ ...edit, phone: e.target.value })} /><small className="small muted">سعودي: 05XXXXXXXX · يمني: 7XXXXXXXX · غيرهما: مع مفتاح الدولة مثل +20…</small></label>
             <button className="btn block" disabled={busy}>{busy ? 'جارٍ الحفظ…' : 'حفظ'}</button>
           </form>
         </Modal>
