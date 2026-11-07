@@ -1,15 +1,15 @@
 const mongoose = require('mongoose');
 const { Student, Enrollment } = require('../models');
 
-// العزل: المعلم لا يرى إلا تسجيلاته (التي هو معلمها الحالي)، ومنها يُشتق الطلاب الذين يراهم.
-const enrollmentScope = (user) => (user.role === 'teacher' ? { teacherId: user._id } : {});
+// العزل: المعلم لا يرى إلا تسجيلاته النشطة التي هو معلمها الحالي (من أُخرج من مستواه يفقد الوصول)، ومنها يُشتق الطلاب الذين يراهم.
+const enrollmentScope = (user) => (user.role === 'teacher' ? { teacherId: user._id, status: 'active' } : {});
 const isManager = (u) => u.role === 'admin' || u.role === 'supervisor';
 
 // الطالب مرئي للمعلم إن كان له تسجيل عنده. نفس الرد 404 لغير الموجود وغير المصرح.
 async function loadStudent(req, res, id = req.params.id) {
   if (!mongoose.isValidObjectId(id)) { res.status(404).json({ error: 'غير موجود' }); return null; }
   const s = await Student.findById(id);
-  if (!s || (!isManager(req.user) && !(await Enrollment.exists({ studentId: s._id, teacherId: req.user._id })))) {
+  if (!s || (!isManager(req.user) && !(await Enrollment.exists({ studentId: s._id, ...enrollmentScope(req.user) })))) {
     res.status(404).json({ error: 'غير موجود' });
     return null;
   }

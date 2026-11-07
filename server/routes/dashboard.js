@@ -37,7 +37,7 @@ router.get('/', async (req, res, next) => {
     const settings = await getSettings();
     const scores = scoreMap(settings);
     const monthFrom = addDays(today, -29);
-    const [students, teachersActive, teachersSuspended, present, absent, noEval, frequent, pending, perLevelRaw, levels, transfers, recs] = await Promise.all([
+    const [students, teachersActive, teachersSuspended, present, absent, noEval, frequent, pending, perLevelRaw, levels, transfers, recs, noActive] = await Promise.all([
       Student.countDocuments({ status: 'active' }),
       User.countDocuments({ role: 'teacher', status: 'active' }),
       User.countDocuments({ role: 'teacher', status: 'suspended' }),
@@ -48,6 +48,7 @@ router.get('/', async (req, res, next) => {
       Level.find().sort({ order: 1 }).select('name').lean(),
       Transfer.find().sort({ createdAt: -1 }).limit(5).populate('studentId', 'name').populate('fromTeacherId toTeacherId', 'name').lean(),
       Recitation.find({ date: { $gte: monthFrom, $lte: today }, grade: { $ne: null } }).select('type grade').lean(),
+      countStudents(u, { filter: 'no_active' }),
     ]);
     const lm = Object.fromEntries(perLevelRaw.map((r) => [String(r._id), r.n]));
     const sc = (t) => avg(recs.filter((r) => r.type === t && r.grade in scores).map((r) => scores[r.grade]));
@@ -56,7 +57,7 @@ router.get('/', async (req, res, next) => {
       cards: {
         students, teachersActive, teachersSuspended, presentToday: present, absentToday: absent,
         attendanceRate: pct(present, present + absent), avgHifz: sc('hifz'), avgReview: sc('review'),
-        noEvalToday: noEval, frequentAbsent: frequent, pendingPromotions: pending,
+        noEvalToday: noEval, frequentAbsent: frequent, pendingPromotions: pending, noActive,
       },
       perLevel: [...levels.map((l) => ({ id: l._id, name: l.name, count: lm[String(l._id)] || 0 })), { id: 'none', name: 'بلا مستوى', count: lm.null || 0 }].filter((l) => l.id !== 'none' || l.count),
       transfers: transfers.map((t) => ({ at: t.createdAt, student: t.studentId?.name, studentId: t.studentId?._id, from: t.fromTeacherId?.name, to: t.toTeacherId?.name })),

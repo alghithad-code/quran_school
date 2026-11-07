@@ -50,6 +50,7 @@ export default function Home({ user }) {
             <Card n={c.avgReview ?? '—'} label={`متوسط المراجعة (${data.avgPeriodDays} يوماً)`} to="/reports?type=school" />
             <Card n={c.noEvalToday} label="بلا تقييم اليوم" to={'/students' + qs({ filter: 'no_eval_today' })} warn />
             <Card n={c.frequentAbsent} label="كثيرو الغياب" to={'/students' + qs({ filter: 'frequent_absent' })} warn />
+            <Card n={c.noActive} label="بلا تسجيل نشط" to={'/students' + qs({ filter: 'no_active' })} warn />
             <Card n={c.pendingPromotions} label="طلبات ترقية معلقة" to="/promotions" warn />
           </div>
           <div className="card">

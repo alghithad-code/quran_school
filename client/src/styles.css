@@ -224,3 +224,17 @@ p .ay.hl { padding: 0 6px; font-size: 14px; }
 .mctl .ibtn.on { background: var(--gold2); border-color: var(--gold2); color: var(--g-dark); }
 .mctl input[type=range], .mvol input[type=range] { min-height: 28px; padding: 0; border: 0; background: transparent; accent-color: var(--gold2); flex: 1; min-width: 90px; width: auto; }
 .mvol { display: flex; align-items: center; gap: 6px; flex: 1; min-width: 130px; color: #f3e3b5; }
+
+/* شريط المصحف الثابت (يعرض الموضع ويفتح لوحة التحكم) */
+.mbar { position: sticky; z-index: 12; display: flex; align-items: center; justify-content: space-between; gap: 10px; background: var(--card); border: 1px solid var(--bd); border-radius: 14px; padding: 8px 12px; margin-bottom: 10px; box-shadow: 0 3px 10px #0002; }
+.mbar-info { display: grid; line-height: 1.45; min-width: 0; }
+.mbar-info b { font-family: var(--font-title); font-size: 19px; color: var(--g-dark); }
+.mbar-info span { font-size: 13.5px; color: var(--mu); }
+.mbar .btn { flex-shrink: 0; }
+
+/* ---- صفحة الطالب ---- */
+.dots { display: flex; flex-wrap: wrap; gap: 5px; margin: 10px 0 6px; }
+.dots i { width: 16px; height: 16px; border-radius: 50%; background: #2f7d4f; display: inline-block; }
+.dots i.bad { background: #c0392b; }
+.srow { display: grid; gap: 3px; margin: 10px 0; }
+.srow .row { margin-bottom: 0; }

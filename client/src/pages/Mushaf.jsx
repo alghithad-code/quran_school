@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { api } from '../api.js';
-import { Icon, Loading } from '../ui.jsx';
+import { Icon, Loading, Modal } from '../ui.jsx';
 
 // المصحف الشريف: مكوّن واحد يُستخدم للزائر (من شاشة الدخول) وللمستخدم المسجل (من القائمة الجانبية).
 // الزائر: يُحفظ موضعه وقارئه على جهازه فقط. المسجل: يُحفظ في حسابه ويُسترجع من أي جهاز، مع نسخة محلية تُزامَن عند عودة الاتصال.
@@ -63,6 +63,8 @@ export default function Mushaf({ authed = false, online = true }) {
   const [res, setRes] = useState(null);
   const [busy, setBusy] = useState(false);
   const [goTo, setGoTo] = useState('');
+  const [ctl, setCtl] = useState(false); // لوحة التحكم (نافذة سفلية)
+  const [topH, setTopH] = useState(64); // ارتفاع شريط الصفحة العلوي لتثبيت شريط المصحف تحته
 
   const audio = useRef(null);
   const plan = useRef(null);
@@ -116,6 +118,8 @@ export default function Mushaf({ authed = false, online = true }) {
     else { pendingJump.current = a; setSurah(s); }
   }
 
+  const go = (s2, a = 1) => { setCtl(false); jump(s2, a); }; // انتقال من لوحة التحكم: يغلقها ثم ينتقل
+
   // تتبّع آخر آية وصل إليها القارئ أثناء التمرير
   useEffect(() => {
     let t;
@@ -129,6 +133,13 @@ export default function Mushaf({ authed = false, online = true }) {
     };
     window.addEventListener('scroll', onScroll, { passive: true });
     return () => { window.removeEventListener('scroll', onScroll); clearTimeout(t); };
+  }, []);
+
+  useEffect(() => {
+    const measure = () => { const h = document.querySelector('.top'); if (h) setTopH(Math.max(0, Math.round(h.getBoundingClientRect().height) - 1)); };
+    measure();
+    window.addEventListener('resize', measure);
+    return () => window.removeEventListener('resize', measure);
   }, []);
 
   // ---------- الحفظ: محلي دائماً، وفي حساب المستخدم المسجل ----------
@@ -222,9 +233,9 @@ export default function Mushaf({ authed = false, online = true }) {
     playStep();
   }
   function stop() { const a = audio.current; if (a) a.pause(); plan.current = null; setNow(null); setPlaying(false); setTime({ t: 0, d: 0 }); }
-  const playSegment = () => { if (segTo < segFrom) { setErr('آية النهاية يجب أن تكون بعد آية البداية'); return; } startPlan({ surah, from: segFrom, to: segTo, each, seg }); };
-  const playAyah = () => { const a = sel || cur; startPlan({ surah, from: a, to: a, each, seg }); };
-  const playWhole = () => startPlan({ surah, from: 1, to: ays, each: 1, seg: 1 });
+  const playSegment = () => { if (segTo < segFrom) { setErr('آية النهاية يجب أن تكون بعد آية البداية'); return; } setCtl(false); startPlan({ surah, from: segFrom, to: segTo, each, seg }); };
+  const playAyah = () => { const a = sel || cur; setCtl(false); startPlan({ surah, from: a, to: a, each, seg }); };
+  const playWhole = () => { setCtl(false); startPlan({ surah, from: 1, to: ays, each: 1, seg: 1 }); };
 
   useEffect(() => { const a = audio.current; if (a) { a.volume = vol; a.playbackRate = speed; a.defaultPlaybackRate = speed; } }, [vol, speed]);
   useEffect(() => () => { const a = audio.current; if (a) { a.pause(); a.removeAttribute('src'); } plan.current = null; }, []);
@@ -265,7 +276,7 @@ export default function Mushaf({ authed = false, online = true }) {
     e.preventDefault();
     const a = Number(goTo);
     if (!Number.isInteger(a) || a < 1 || a > ays) { setErr(`رقم الآية بين 1 و${ays}`); return; }
-    setErr(''); jump(surah, a); setGoTo('');
+    setErr(''); go(surah, a); setGoTo('');
   }
 
   const playingAyah = now && now.surah === surah ? now.ayah : null;
@@ -292,15 +303,26 @@ export default function Mushaf({ authed = false, online = true }) {
 
   return (
     <div className="mush">
-      <div className="card mtools">
+      <div className="mbar" style={{ top: topH }}>
+        <div className="mbar-info">
+          <b>سورة {nameOf(surah)}</b>
+          <span>الجزء {ar(juzNo)}{pageNo ? ` · الصفحة ${ar(pageNo)}` : ''} · الآية {ar(cur)} من {ar(ays)}</span>
+        </div>
+        <button type="button" className="btn sm" onClick={() => setCtl(true)}><Icon name="sliders" size={20} /> التحكم</button>
+      </div>
+
+      {ctl && (
+        <Modal title="لوحة التحكم" onClose={() => setCtl(false)}>
+          <div className="mtools">
+            {err && <div className="alert" onClick={() => setErr('')}>{err}</div>}
         <div className="mgrid">
           <label>السورة
-            <select value={surah} onChange={(e) => jump(Number(e.target.value), 1)}>
+            <select value={surah} onChange={(e) => go(Number(e.target.value), 1)}>
               {meta.surahs.map((s) => <option key={s.n} value={s.n}>{s.n}. {s.name}</option>)}
             </select>
           </label>
           <label>الجزء
-            <select value={juzNo} onChange={(e) => { const [s, a] = meta.juz[Number(e.target.value) - 1]; jump(s, a); }}>
+            <select value={juzNo} onChange={(e) => { const [s, a] = meta.juz[Number(e.target.value) - 1]; go(s, a); }}>
               {meta.juz.map((_, i) => <option key={i} value={i + 1}>الجزء {ar(i + 1)}</option>)}
             </select>
           </label>
@@ -334,9 +356,9 @@ export default function Mushaf({ authed = false, online = true }) {
               <button className="btn" disabled={busy || !online}>{busy ? '…' : 'بحث'}</button>
             </form>
             {res && !res.surahs.length && !res.ayahs.length && <p className="muted small">لا توجد نتائج</p>}
-            {res?.surahs.length > 0 && <div className="chips">{res.surahs.map((s) => <button key={s.surah} className="chip" onClick={() => { jump(s.surah, 1); setPanel(''); }}>سورة {s.name}</button>)}</div>}
+            {res?.surahs.length > 0 && <div className="chips">{res.surahs.map((s) => <button key={s.surah} className="chip" onClick={() => { go(s.surah, 1); setPanel(''); }}>سورة {s.name}</button>)}</div>}
             {res?.ayahs.map((a) => (
-              <button key={a.surah + ':' + a.ayah} className="line" onClick={() => { jump(a.surah, a.ayah); setPanel(''); }}>
+              <button key={a.surah + ':' + a.ayah} className="line" onClick={() => { go(a.surah, a.ayah); setPanel(''); }}>
                 <span className="qsnip" dir="rtl">{a.text.length > 90 ? a.text.slice(0, 90) + '…' : a.text}</span>
                 <small className="muted">{a.name} · {ar(a.ayah)}</small>
               </button>
@@ -364,14 +386,11 @@ export default function Mushaf({ authed = false, online = true }) {
             <p className="muted small">لا ينتقل التشغيل لآية أخرى قبل انتهاء المقطع المحدد وتكراره. السرعة تطبّقها المتصفح على التلاوة.</p>
           </div>
         )}
-      </div>
+          </div>
+        </Modal>
+      )}
 
-      {err && <div className="alert" onClick={() => setErr('')}>{err}</div>}
-
-      <div className="mhead">
-        <b>سورة {nameOf(surah)}</b>
-        <span>الجزء {ar(juzNo)}{pageNo ? ` · الصفحة ${ar(pageNo)}` : ''} · الآية {ar(cur)} من {ar(ays)}</span>
-      </div>
+      {!ctl && err && <div className="alert" onClick={() => setErr('')}>{err}</div>}
 
       <div className="mtext">{data ? text : <Loading />}</div>
 

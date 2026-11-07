@@ -51,8 +51,15 @@ async function buildEnrollmentFilter(user, q = {}) {
 // فلتر الطلاب (الأشخاص) الذين لهم تسجيلات مطابقة. المعلم لا يحصل إلا على طلاب تسجيلاته.
 async function buildStudentFilter(user, q = {}) {
   const ef = await buildEnrollmentFilter(user, q);
-  const ids = await Enrollment.distinct('studentId', ef);
-  const and = [{ _id: { $in: ids } }];
+  const and = [];
+  if (user.role !== 'teacher') {
+    // طلاب بلا أي تسجيل نشط (أُخرجوا من كل مستوياتهم): يظهرون للمشرف في القائمة العامة وبفلتر «بلا تسجيل نشط»
+    if (q.filter === 'no_active') and.push({ _id: { $nin: await Enrollment.distinct('studentId', { status: 'active' }) } });
+    else if (q.teacherId || q.levelId || q.today === '1' || q.filter) and.push({ _id: { $in: await Enrollment.distinct('studentId', ef) } });
+    // القائمة المفتوحة (بلا فلاتر): من لهم تسجيل مطابق ومن لا تسجيل نشط لهم = كل الطلاب، فلا حاجة لجلب المعرّفات أصلاً
+  } else {
+    and.push({ _id: { $in: await Enrollment.distinct('studentId', ef) } });
+  }
   if (q.status !== 'all') and.push({ status: ['active', 'paused', 'archived'].includes(q.status) ? q.status : 'active' });
   const text = String(q.q || '').trim().slice(0, 50);
   if (text) { const rx = new RegExp(escapeRegex(text), 'i'); and.push({ $or: [{ name: rx }, { phone: rx }] }); }

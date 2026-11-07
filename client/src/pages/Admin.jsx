@@ -60,7 +60,7 @@ export default function Admin({ online }) {
         <label className="check"><input type="checkbox" checked={!!s.teachersCanAddStudents} onChange={(e) => setS({ ...s, teachersCanAddStudents: e.target.checked })} />السماح للمعلمين بإضافة طلاب</label>
         <p className="small muted">عند التفعيل يضيف المعلم طلاباً إلى نفسه فقط، وبمستويات مُعيَّنة له، ويصل إشعار للمشرفين. يُطبَّق فوراً في الخادم.</p>
         <h3 style={{ marginTop: 16 }}>خيارات عامة</h3>
-        <label>أيام الغياب المتتالية لإرسال تنبيه<input type="number" min="1" max="30" value={s.absenceThreshold} onChange={(e) => setS({ ...s, absenceThreshold: e.target.value })} /></label>
+        <label>أيام الغياب المتتالية لبدء التنبيه (ثم يتكرر مع كل يوم غياب إضافي)<input type="number" min="1" max="30" value={s.absenceThreshold} onChange={(e) => setS({ ...s, absenceThreshold: e.target.value })} /></label>
         <label>مدة الاحتفاظ بسجل العمليات (أيام)<input type="number" min="30" value={s.auditRetentionDays} onChange={(e) => setS({ ...s, auditRetentionDays: e.target.value })} /></label>
         <label>عدد النسخ التلقائية المحتفظ بها<input type="number" min="1" max="52" value={s.backupKeep} onChange={(e) => setS({ ...s, backupKeep: e.target.value })} /></label>
         <button className="btn block" disabled={busy || !online}>حفظ الإعدادات</button>

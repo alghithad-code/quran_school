@@ -1,7 +1,7 @@
 const express = require('express');
 const mongoose = require('mongoose');
 const { z } = require('zod');
-const { Enrollment, Level, LevelChange } = require('../models');
+const { Enrollment, Level, LevelChange, Attendance, Recitation, Note, Transfer, PromotionRequest } = require('../models');
 const { requireAuth, requireRole } = require('../middleware/auth');
 const { loadEnrollment } = require('../lib/access');
 const { notify } = require('../lib/notify');
@@ -84,15 +84,37 @@ router.post('/:eid/status', manager, async (req, res, next) => {
     const status = req.body?.status;
     if (!['active', 'ended'].includes(status)) return res.status(400).json({ error: 'حالة غير صحيحة' });
     if (status === e.status) return res.json({ ok: true });
-    if (status === 'ended' && !(await Enrollment.exists({ studentId: e.studentId, status: 'active', _id: { $ne: e._id } }))) {
-      return res.status(400).json({ error: 'هذا آخر تسجيل نشط للطالب. لإيقافه استخدم حالة الطالب (إيقاف/أرشفة).' });
-    }
     if (status === 'active' && (await Enrollment.exists({ studentId: e.studentId, levelId: e.levelId, status: 'active', _id: { $ne: e._id } }))) {
       return res.status(409).json({ error: 'الطالب مسجّل في هذا المستوى بتسجيل آخر نشط' });
     }
     e.status = status;
     await e.save();
     await audit(req, 'student.enrollment_status', { targetType: 'student', target: student, details: { enrollmentId: String(e._id), status } });
+    res.json({ ok: true });
+  } catch (err) { next(err); }
+});
+
+// حذف تسجيل أُضيف بالخطأ: مسموح فقط إن لم تكن له أي سجلات (حضور/تسميع/ملاحظات). غير ذلك: «إخراج من المستوى».
+router.delete('/:eid', manager, async (req, res, next) => {
+  try {
+    const ctx = await loadEnrollment(req, res);
+    if (!ctx) return;
+    const { e, student } = ctx;
+    const q = { enrollmentId: e._id };
+    if ((await Attendance.exists(q)) || (await Recitation.exists(q)) || (await Note.exists(q))) {
+      return res.status(400).json({ error: 'لا يمكن الحذف النهائي لأن للتسجيل سجلات (حضور أو تسميع أو ملاحظات). استخدم «إخراج من المستوى» فتبقى سجلاته.' });
+    }
+    const lvl = e.levelId ? (await Level.findById(e.levelId).select('name').lean())?.name : null;
+    const session = await mongoose.startSession();
+    try {
+      await session.withTransaction(async () => {
+        await LevelChange.deleteMany(q, { session });
+        await Transfer.deleteMany(q, { session });
+        await PromotionRequest.deleteMany(q, { session });
+        await Enrollment.deleteOne({ _id: e._id }, { session });
+      });
+    } finally { await session.endSession(); }
+    await audit(req, 'student.enrollment_delete', { targetType: 'student', target: student, details: { enrollmentId: String(e._id), level: lvl } });
     res.json({ ok: true });
   } catch (err) { next(err); }
 });

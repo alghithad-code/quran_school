@@ -51,46 +51,50 @@ export default function StudentAccount({ studentId, studentActive, isManager, on
         </>
       )}
 
-      {modal?.create && (
-        <Modal title="إنشاء حساب للطالب" onClose={() => setModal(null)}>
-          <form onSubmit={(e) => { e.preventDefault(); run(() => api(base, { method: 'POST', body: modal.create.username ? { username: modal.create.username } : {} }), null, showCreds); }}>
-            <label>اسم المستخدم (اتركه فارغاً ليُولَّد تلقائياً)
-              <input dir="ltr" placeholder="مثال: st123456" value={modal.create.username} onChange={(e) => setModal({ create: { username: e.target.value } })} />
-            </label>
-            <p className="small muted">حروف إنجليزية وأرقام فقط. تُولَّد كلمة مرور مؤقتة تظهر مرة واحدة، ويُطلب من الطالب تغييرها عند أول دخول.</p>
-            <button className="btn block" disabled={busy}>{busy ? 'جارٍ الإنشاء…' : 'إنشاء'}</button>
-          </form>
-        </Modal>
-      )}
+      {/* نافذة واحدة تتبدل محتوياتها: تبديل نافذتين مختلفتين في اللحظة نفسها يجعل زر الرجوع الداخلي يغلق الجديدة فوراً */}
+      {modal && (
+        <Modal
+          title={modal.creds ? 'بيانات دخول الطالب' : modal.create ? 'إنشاء حساب للطالب' : modal.reset ? 'إعادة تعيين كلمة المرور' : modal.rename ? 'تعديل اسم المستخدم' : 'حذف حساب الطالب'}
+          onClose={() => setModal(null)}
+        >
+          {modal.creds && (
+            <>
+              <div className="alert">احفظ هذه البيانات الآن وسلّمها للطالب أو وليّ أمره. كلمة المرور لن تظهر مرة أخرى.</div>
+              <div className="pre" style={{ fontSize: 17 }}>{`اسم المستخدم: ${modal.creds.username}\nكلمة المرور المؤقتة: ${modal.creds.password}`}</div>
+              <button className="btn block" style={{ marginTop: 10 }} onClick={() => copy(modal.creds)}>{copied ? 'تم النسخ ✓' : 'نسخ البيانات مع رابط الدخول'}</button>
+            </>
+          )}
 
-      {modal?.creds && (
-        <Modal title="بيانات دخول الطالب" onClose={() => setModal(null)}>
-          <div className="alert">احفظ هذه البيانات الآن وسلّمها للطالب أو وليّ أمره. كلمة المرور لن تظهر مرة أخرى.</div>
-          <div className="pre" style={{ fontSize: 17 }}>{`اسم المستخدم: ${modal.creds.username}\nكلمة المرور المؤقتة: ${modal.creds.password}`}</div>
-          <button className="btn block" style={{ marginTop: 10 }} onClick={() => copy(modal.creds)}>{copied ? 'تم النسخ ✓' : 'نسخ البيانات مع رابط الدخول'}</button>
-        </Modal>
-      )}
+          {modal.create && (
+            <form onSubmit={(e) => { e.preventDefault(); run(() => api(base, { method: 'POST', body: modal.create.username ? { username: modal.create.username } : {} }), null, showCreds); }}>
+              <label>اسم المستخدم (اتركه فارغاً ليُولَّد تلقائياً)
+                <input dir="ltr" placeholder="مثال: st123456" value={modal.create.username} onChange={(e) => setModal({ create: { username: e.target.value } })} />
+              </label>
+              <p className="small muted">حروف إنجليزية وأرقام فقط. تُولَّد كلمة مرور مؤقتة تظهر مرة واحدة، ويُطلب من الطالب تغييرها عند أول دخول.</p>
+              <button className="btn block" disabled={busy}>{busy ? 'جارٍ الإنشاء…' : 'إنشاء'}</button>
+            </form>
+          )}
 
-      {modal?.reset && (
-        <Modal title="إعادة تعيين كلمة المرور" onClose={() => setModal(null)}>
-          <p className="small muted">ستُنشأ كلمة مرور مؤقتة جديدة وتبطل الحالية، ويُطلب من الطالب تغييرها عند دخوله.</p>
-          <button className="btn block" disabled={busy} onClick={() => run(() => api(base + '/reset-password', { method: 'POST' }), null, showCreds)}>تأكيد وإنشاء كلمة جديدة</button>
-        </Modal>
-      )}
+          {modal.reset && (
+            <>
+              <p className="small muted">ستُنشأ كلمة مرور مؤقتة جديدة وتبطل الحالية، ويُطلب من الطالب تغييرها عند دخوله.</p>
+              <button className="btn block" disabled={busy} onClick={() => run(() => api(base + '/reset-password', { method: 'POST' }), null, showCreds)}>{busy ? 'جارٍ الإنشاء…' : 'تأكيد وإنشاء كلمة جديدة'}</button>
+            </>
+          )}
 
-      {modal?.rename && (
-        <Modal title="تعديل اسم المستخدم" onClose={() => setModal(null)}>
-          <form onSubmit={(e) => { e.preventDefault(); run(() => api(base, { method: 'PATCH', body: { username: modal.rename.username } }), 'تم تعديل اسم المستخدم'); }}>
-            <label>اسم المستخدم<input dir="ltr" value={modal.rename.username} onChange={(e) => setModal({ rename: { username: e.target.value } })} required /></label>
-            <button className="btn block" disabled={busy}>حفظ</button>
-          </form>
-        </Modal>
-      )}
+          {modal.rename && (
+            <form onSubmit={(e) => { e.preventDefault(); run(() => api(base, { method: 'PATCH', body: { username: modal.rename.username } }), 'تم تعديل اسم المستخدم'); }}>
+              <label>اسم المستخدم<input dir="ltr" value={modal.rename.username} onChange={(e) => setModal({ rename: { username: e.target.value } })} required /></label>
+              <button className="btn block" disabled={busy}>حفظ</button>
+            </form>
+          )}
 
-      {modal?.del && (
-        <Modal title="حذف حساب الطالب" onClose={() => setModal(null)}>
-          <p className="small muted">سيُحذف حساب الدخول فقط ولا يتأثر الطالب ولا سجلاته. يمكنك إنشاء حساب جديد لاحقاً.</p>
-          <button className="btn block danger" disabled={busy} onClick={() => run(() => api(base, { method: 'DELETE' }), 'تم حذف الحساب')}>تأكيد الحذف</button>
+          {modal.del && (
+            <>
+              <p className="small muted">سيُحذف حساب الدخول فقط ولا يتأثر الطالب ولا سجلاته. يمكنك إنشاء حساب جديد لاحقاً.</p>
+              <button className="btn block danger" disabled={busy} onClick={() => run(() => api(base, { method: 'DELETE' }), 'تم حذف الحساب')}>تأكيد الحذف</button>
+            </>
+          )}
         </Modal>
       )}
     </div>
