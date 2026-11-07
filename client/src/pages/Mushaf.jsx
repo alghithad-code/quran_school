@@ -66,6 +66,9 @@ export default function Mushaf({ authed = false, online = true }) {
   const [ctl, setCtl] = useState(false); // لوحة التحكم (نافذة سفلية)
   const [topH, setTopH] = useState(64); // ارتفاع شريط الصفحة العلوي لتثبيت شريط المصحف تحته
 
+  // في وضع المصحف يختفي الشريط السفلي للتطبيق ويستقر شريط التشغيل في أسفل الشاشة (القائمة الجانبية تبقى من زر القائمة)
+  useEffect(() => { document.body.classList.add('mushaf-open'); return () => document.body.classList.remove('mushaf-open'); }, []);
+
   const audio = useRef(null);
   const plan = useRef(null);
   const touched = useRef(false);
