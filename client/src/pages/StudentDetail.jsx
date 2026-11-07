@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { api } from '../api.js';
 import { SURAHS } from '../quran.js';
 import { QuranReader } from '../quranReader.jsx';
+import StudentAccount from './StudentAccount.jsx';
 import { BackLink, CAT_AR, DAYS_AR, ErrorBox, IconBtn, Loading, Modal, Progress, STATUS_AR, fmtDT, fmtTime, go, gradeLabel, qs, todayStr, useFlash, useLoad, useSettings } from '../ui.jsx';
 
 const LVL_AR = { assign: 'تعيين', promotion: 'ترقية', demotion: 'خفض' };
@@ -23,6 +24,7 @@ function RecordForm({ enrollmentId, kind, rec, onDone, onClose, scale, levelSura
     mode: rec?.mode || 'surah', surah: String(rec?.surah || levelSurahs[0] || 1), fromAyah: rec?.fromAyah ?? '', toAyah: rec?.toAyah ?? '',
     fromPage: rec?.fromPage ?? '', toPage: rec?.toPage ?? '', grade: rec?.grade || '',
     category: rec?.category || 'general', text: rec?.text || '',
+    visible: rec ? !!rec.visibleToStudent : true, // مرئية للطالب (الافتراضي: نعم لغير السلوك والانضباط)
   }));
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState('');
@@ -35,7 +37,7 @@ function RecordForm({ enrollmentId, kind, rec, onDone, onClose, scale, levelSura
     try {
       let path, body;
       if (kind === 'attendance') { path = 'attendance'; body = { date: f.date, status: f.status, note: f.note }; }
-      else if (kind === 'note') { path = 'notes'; body = { date: f.date, category: f.category, text: f.text }; }
+      else if (kind === 'note') { path = 'notes'; body = { date: f.date, category: f.category, text: f.text, visibleToStudent: f.visible }; }
       else { path = 'recitations'; body = { date: f.date, type: kind, mode: f.mode, surah: f.surah, fromAyah: f.fromAyah, toAyah: f.toAyah, fromPage: f.fromPage, toPage: f.toPage, grade: f.grade }; }
       if (editing) await api(`/records/${rec.kind}/${rec.id}`, { method: 'PATCH', body });
       else await api(`/enrollments/${enrollmentId}/${path}`, { method: 'POST', body });
@@ -76,8 +78,10 @@ function RecordForm({ enrollmentId, kind, rec, onDone, onClose, scale, levelSura
           <label>التقييم<select value={f.grade} onChange={set('grade')}><option value="">بلا تقييم</option>{scale.map((g) => <option key={g.key} value={g.key}>{g.label}</option>)}</select></label>
         </>)}
         {kind === 'note' && (<>
-          <label>التصنيف<select value={f.category} onChange={set('category')}>{Object.entries(CAT_AR).map(([k, v]) => <option key={k} value={k}>{v}</option>)}</select></label>
+          <label>التصنيف<select value={f.category} onChange={(e) => { const v = e.target.value; setF((s) => ({ ...s, category: v, visible: editing ? s.visible : !['behavior', 'discipline'].includes(v) })); }}>{Object.entries(CAT_AR).map(([k, v]) => <option key={k} value={k}>{v}</option>)}</select></label>
           <label>الملاحظة<textarea rows="3" value={f.text} onChange={set('text')} maxLength={1000} required /></label>
+          <label className="check"><input type="checkbox" checked={f.visible} onChange={(e) => setF((s) => ({ ...s, visible: e.target.checked }))} />مرئية للطالب (تظهر في صفحته)</label>
+          <p className="small muted">ملاحظات السلوك والانضباط مخفية عن الطالب افتراضاً، ويمكنك إظهار أي ملاحظة بهذا الخيار.</p>
         </>)}
         {err && <div className="alert">{err}</div>}
         <button className="btn block" disabled={busy}>{busy ? 'جارٍ الحفظ…' : 'حفظ'}</button>
@@ -142,6 +146,7 @@ export default function StudentDetail({ id, me, online }) {
         </div>
       </div>
       {flash.node}
+      <StudentAccount studentId={id} studentActive={s.status === 'active'} isManager={isManager} online={online} />
 
       {isManager && !enrollments.some((e) => e.status === 'active') && <div className="alert">الطالب بلا تسجيل نشط. اضغط «مستوى» لتسجيله في مستوى، أو أعد تسجيله من تبويب مستوى سابق.</div>}
       {enrollments.length === 0 && <p className="muted center">لا توجد تسجيلات ظاهرة لك</p>}
@@ -213,7 +218,7 @@ export default function StudentDetail({ id, me, online }) {
               return (
                 <div className="rec" key={r.kind + r.id}>
                   <div className="row between" style={{ marginBottom: 2 }}>
-                    <b className={d.cls ? 'c-' + d.cls : ''}>{d.title}</b>
+                    <b className={d.cls ? 'c-' + d.cls : ''}>{d.title}</b>{r.kind === 'note' && r.visibleToStudent && <span className="tag ok" style={{ marginInlineStart: 6 }}>مرئية للطالب</span>}
                     <small className="muted">{r.date}</small>
                   </div>
                   {d.sub && <div className="small">{d.sub}</div>}

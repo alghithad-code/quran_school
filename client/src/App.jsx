@@ -21,6 +21,7 @@ import Admin from './pages/Admin.jsx';
 import More from './pages/More.jsx';
 import Mushaf, { PublicMushaf } from './pages/Mushaf.jsx';
 import Readers from './pages/Readers.jsx';
+import StudentApp from './pages/StudentApp.jsx';
 
 const TITLES = { mushaf: 'المصحف الشريف', readers: 'قراء المصحف', '': 'الرئيسية', students: 'الطلاب', users: 'المشرفون والمديرون', teachers: 'المعلمون', groups: 'المجموعات', levels: 'المستويات', promotions: 'طلبات الترقية', reports: 'التقارير', notifications: 'الإشعارات', audit: 'سجل العمليات', admin: 'الإعدادات والنسخ', more: 'حسابي' };
 
@@ -47,16 +48,16 @@ export default function App() {
   }, []);
 
   // يتحدّث الإعداد عند فتح الطلاب (مثلاً إذا غيّر المدير صلاحية إضافة الطلاب)
-  useEffect(() => { if (user && path.startsWith('/students')) api('/settings').then(setSettings).catch(() => {}); }, [path, user]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { if (user && user.role !== 'student' && path.startsWith('/students')) api('/settings').then(setSettings).catch(() => {}); }, [path, user]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const loadSession = useCallback((u) => { setUser(u); api('/settings').then(setSettings).catch(() => {}); }, []);
+  const loadSession = useCallback((u) => { setUser(u); if (u.role !== 'student') api('/settings').then(setSettings).catch(() => {}); }, []); // الطالب لا يملك صلاحية الإعدادات
   useEffect(() => {
     api('/auth/me').then((d) => { setCsrf(d.csrfToken); loadSession(d.user); }).catch(() => {}).finally(() => setReady(true));
   }, [loadSession]);
 
   const refreshUnread = useCallback(() => { api('/notifications/count').then((d) => setUnread(d.unread)).catch((e) => { if (e.status === 401) setUser(null); }); }, []);
   useEffect(() => {
-    if (!user) return undefined;
+    if (!user || user.role === 'student') return undefined; // الطالب بلا إشعارات
     refreshUnread();
     const t = setInterval(refreshUnread, 60000);
     return () => clearInterval(t);
@@ -70,6 +71,8 @@ export default function App() {
   if (!ready) return <div className="center muted">جارٍ التحميل…</div>;
   if (!user && path.split('/').filter(Boolean)[0] === 'mushaf') return <PublicMushaf online={online} />; // المصحف عام: بلا تسجيل دخول
   if (!user) return <Login onLogin={(d) => { setCsrf(d.csrfToken); loadSession(d.user); }} online={online} />;
+
+  if (user.role === 'student') return <StudentApp user={user} setUser={setUser} online={online} path={path} onLogout={logout} />;
 
   const isManager = user.role !== 'teacher';
   const seg = path.split('/').filter(Boolean);

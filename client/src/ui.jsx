@@ -127,7 +127,7 @@ export const Empty = ({ text = 'لا توجد بيانات' }) => <p className="
 const DT = new Intl.DateTimeFormat('ar-u-ca-gregory-nu-latn', { timeZone: 'Asia/Riyadh', dateStyle: 'medium', timeStyle: 'short' });
 export const fmtDT = (v) => (v ? DT.format(new Date(v)) : '—');
 
-export const ROLE_AR = { admin: 'مدير النظام', supervisor: 'مشرف', teacher: 'معلم' };
+export const ROLE_AR = { admin: 'مدير النظام', supervisor: 'مشرف', teacher: 'معلم', student: 'طالب' };
 export const STATUS_AR = { active: 'نشط', paused: 'متوقف', archived: 'مؤرشف', suspended: 'موقوف' };
 export const DAYS_AR = ['الأحد', 'الاثنين', 'الثلاثاء', 'الأربعاء', 'الخميس', 'الجمعة', 'السبت'];
 export const CAT_AR = { hifz: 'الحفظ', review: 'المراجعة', behavior: 'السلوك', discipline: 'الانضباط', general: 'عامة' };
@@ -139,6 +139,7 @@ export const ACTION_AR = {
   'level.create': 'إضافة مستوى', 'level.update': 'تعديل مستوى', 'level.delete': 'حذف مستوى', 'level.reorder': 'ترتيب المستويات', 'level.assign_teacher': 'ربط معلم بمستويات',
   'promotion.request': 'طلب ترقية', 'promotion.approve': 'قبول ترقية', 'promotion.reject': 'رفض ترقية',
   'settings.update': 'تعديل الإعدادات', 'backup.create': 'إنشاء نسخة احتياطية', 'backup.download': 'تنزيل نسخة', 'backup.upload': 'رفع نسخة', 'audit.cleanup': 'تنظيف سجل العمليات',
+  'studentAccount.create': 'إنشاء حساب طالب', 'studentAccount.reset_password': 'إعادة تعيين كلمة مرور طالب', 'studentAccount.status': 'تغيير حالة حساب طالب', 'studentAccount.update': 'تعديل اسم مستخدم طالب', 'studentAccount.delete': 'حذف حساب طالب',
   'reader.create': 'إضافة قارئ للمصحف', 'reader.update': 'تعديل قارئ', 'reader.delete': 'حذف قارئ',
 };
 
