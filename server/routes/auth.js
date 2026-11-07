@@ -5,7 +5,8 @@ const rateLimit = require('express-rate-limit');
 const { z } = require('zod');
 const User = require('../models/User');
 const config = require('../config');
-const { requireAuth } = require('../middleware/auth');
+const { Student } = require('../models');
+const { requireSession } = require('../middleware/auth');
 const { audit } = require('../utils/audit');
 const { isValidPassword, PASSWORD_MESSAGE } = require('../utils/password');
 
@@ -49,6 +50,10 @@ router.post('/login', loginLimiter, async (req, res, next) => {
       return res.status(401).json(GENERIC_FAIL);
     }
     if (user.status !== 'active') return res.status(403).json({ error: 'هذا الحساب موقوف، راجع المشرف' });
+    if (user.role === 'student') { // حساب الطالب لا يعمل إن كان الطالب موقوفاً أو مؤرشفاً
+      const st = user.studentId ? await Student.findById(user.studentId).select('status').lean() : null;
+      if (!st || st.status !== 'active') return res.status(403).json({ error: 'هذا الحساب موقوف، راجع المعلم أو المشرف' });
+    }
 
     user.failedLogins = 0;
     user.lockUntil = null;
@@ -70,11 +75,11 @@ router.post('/login', loginLimiter, async (req, res, next) => {
   }
 });
 
-router.get('/me', requireAuth, (req, res) => {
+router.get('/me', requireSession, (req, res) => {
   res.json({ user: req.user.toPublic(), csrfToken: req.session.csrf });
 });
 
-router.post('/logout', requireAuth, (req, res) => {
+router.post('/logout', requireSession, (req, res) => {
   req.session.destroy(() => {
     res.clearCookie('sid');
     res.json({ ok: true });
@@ -86,7 +91,7 @@ const pwSchema = z.object({
   newPassword: z.string().max(200).refine(isValidPassword, PASSWORD_MESSAGE),
 });
 
-router.post('/change-password', requireAuth, async (req, res, next) => {
+router.post('/change-password', requireSession, async (req, res, next) => {
   try {
     const parsed = pwSchema.safeParse(req.body);
     if (!parsed.success) return res.status(400).json({ error: parsed.error.issues[0].message });
@@ -95,6 +100,7 @@ router.post('/change-password', requireAuth, async (req, res, next) => {
       return res.status(400).json({ error: 'كلمة المرور الحالية غير صحيحة' });
     }
     user.passwordHash = await bcrypt.hash(parsed.data.newPassword, 12);
+    user.mustChangePassword = false;
     await user.save();
     await audit(req, 'user.change_password', { targetType: 'user', target: user });
     res.json({ ok: true });

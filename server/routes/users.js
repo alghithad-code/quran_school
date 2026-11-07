@@ -85,6 +85,7 @@ router.get('/', async (req, res, next) => {
     // المشرف لا يرى إلا المعلمين
     if (req.user.role === 'supervisor') filter.role = 'teacher';
     else if (['admin', 'supervisor', 'teacher'].includes(req.query.role)) filter.role = req.query.role;
+    else filter.role = { $ne: 'student' }; // حسابات الطلاب تُدار من صفحة الطالب
     if (['active', 'suspended'].includes(req.query.status)) filter.status = req.query.status;
     const q = String(req.query.q || '').trim().slice(0, 50);
     if (q) {
@@ -136,7 +137,7 @@ async function loadTarget(req, res) {
   }
   const target = await User.findById(req.params.id);
   // نفس الرد لغير الموجود ولغير المصرح به، حتى لا نكشف وجود حسابات
-  if (!target || !canManage(req.user, target)) {
+  if (!target || target.role === 'student' || !canManage(req.user, target)) {
     res.status(404).json({ error: 'غير موجود' });
     return null;
   }

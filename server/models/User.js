@@ -1,6 +1,6 @@
 const mongoose = require('mongoose');
 
-const ROLES = ['admin', 'supervisor', 'teacher'];
+const ROLES = ['admin', 'supervisor', 'teacher', 'student'];
 const STATUSES = ['active', 'suspended'];
 
 const userSchema = new mongoose.Schema(
@@ -12,6 +12,9 @@ const userSchema = new mongoose.Schema(
     status: { type: String, enum: STATUSES, default: 'active', index: true },
     passwordHash: { type: String, required: true, select: false },
     levelIds: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Level' }], // تُستخدم في المرحلة 5
+    // حساب الطالب: مرتبط بسجل طالب واحد فقط (يُحذف الحقل لغير الطلاب فيعمل الفهرس الفريد المتفرق)
+    studentId: { type: mongoose.Schema.Types.ObjectId, ref: 'Student', index: { unique: true, sparse: true } },
+    mustChangePassword: { type: Boolean, default: false }, // كلمة مؤقتة: تُغيَّر عند أول دخول
     // موضع قراءة المصحف وإعداداته (لا يمس بيانات الطلاب)
     mushaf: {
       type: new mongoose.Schema({
@@ -42,6 +45,8 @@ userSchema.methods.toPublic = function () {
     role: this.role,
     status: this.status,
     levelIds: this.levelIds,
+    studentId: this.studentId ? String(this.studentId) : null,
+    mustChangePassword: !!this.mustChangePassword,
     lastLoginAt: this.lastLoginAt,
     createdAt: this.createdAt,
   };

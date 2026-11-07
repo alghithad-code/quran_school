@@ -70,9 +70,11 @@ const Enrollment = mongoose.model('Enrollment', (() => {
       endTime: { type: String, default: '' },
       notes: { type: String, default: '', maxlength: 300 },
     },
+    lastAbsenceAlert: { type: String, default: '' }, // مفتاح آخر تنبيه غياب أُرسل (بداية السلسلة|طولها) لمنع تكراره
     createdBy: oid('User'),
   }, { timestamps: true });
   s.index({ studentId: 1, status: 1 });
+  s.index({ status: 1, studentId: 1 }); // يسرّع جلب معرّفات الطلاب ذوي التسجيل النشط
   return s;
 })());
 
@@ -112,6 +114,7 @@ const Note = mongoose.model('Note', (() => {
     ...recordBase,
     category: { type: String, enum: ['hifz', 'review', 'behavior', 'discipline', 'general'], required: true },
     text: { type: String, required: true, maxlength: 1000 },
+    visibleToStudent: { type: Boolean, default: false }, // لا يراها الطالب إلا إن حدّدها المعلم (الملاحظات القديمة تبقى مخفية)
   }, { timestamps: true });
   s.index({ studentId: 1, date: -1 });
   return s;

@@ -56,6 +56,7 @@ function buildApp() {
   app.use('/api/users', require('./routes/users'));
   const { studentRecords, enrollmentRecords, recordEdit, bulkAttendance } = require('./routes/records');
   app.use('/api/attendance/bulk', bulkAttendance);
+  app.use('/api/students/:id/account', require('./routes/studentAccounts'));
   app.use('/api/students/:id', studentRecords);
   app.use('/api/students', require('./routes/students'));
   app.use('/api/enrollments/:eid', enrollmentRecords);
@@ -65,6 +66,7 @@ function buildApp() {
   app.use('/api/levels', require('./routes/levels'));
   app.use('/api/quran', require('./routes/quran'));
   app.use('/api/mushaf', require('./routes/mushafProgress'));
+  app.use('/api/portal', require('./routes/portal')); // بوابة الطالب (قراءة فقط)
   app.use('/api/readers', require('./routes/readers'));
   app.use('/api/groups', require('./routes/groups'));
   app.use('/api/promotions', require('./routes/promotions'));

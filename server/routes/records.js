@@ -53,7 +53,7 @@ function cleanRecitation(b, gradeKeys) {
 function present(kind, r, user) {
   const base = { kind, id: String(r._id), enrollmentId: String(r.enrollmentId), date: r.date, at: r.createdAt, by: r.createdBy?.name ? { id: String(r.createdBy._id), name: r.createdBy.name } : null, editable: canEditRecord(user, { createdBy: r.createdBy?._id || r.createdBy }) };
   if (kind === 'attendance') return { ...base, status: r.status, note: r.note };
-  if (kind === 'note') return { ...base, category: r.category, text: r.text };
+  if (kind === 'note') return { ...base, category: r.category, text: r.text, visibleToStudent: !!r.visibleToStudent };
   return { ...base, type: r.type, mode: r.mode, surah: r.surah, surahName: r.surah ? SURAHS[r.surah - 1]?.name : undefined, fromAyah: r.fromAyah, toAyah: r.toAyah, fromPage: r.fromPage, toPage: r.toPage, grade: r.grade };
 }
 
@@ -96,15 +96,21 @@ async function loadActive(req, res) {
   return ctx;
 }
 
+// تنبيه الغياب المتتالي: يُرسل عند بلوغ الحد ثم مع كل يوم غياب إضافي (3 ثم 4 ثم 5...).
+// مفتاح السلسلة = تاريخ أول غياب فيها + طولها، ويُحجز بتحديث ذرّي، فلا يتكرر التنبيه عند تعديل سجل قائم
+// أو عند طلبين متزامنين، وتبدأ سلسلة جديدة بعد أي حضور بمفتاح مختلف فيصلح التنبيه من جديد.
 async function absenceAlert(e, student) {
   const { absenceThreshold } = await getSettings();
-  const recent = await Attendance.find({ enrollmentId: e._id }).sort({ date: -1 }).limit(absenceThreshold + 1).select('status').lean();
+  const recent = await Attendance.find({ enrollmentId: e._id }).sort({ date: -1 }).limit(90).select('status date').lean();
   let streak = 0;
-  for (const r of recent) { if (r.status === 'absent') streak += 1; else break; }
-  if (streak === absenceThreshold) {
-    const lvl = e.levelId ? (await Level.findById(e.levelId).select('name').lean())?.name : null;
-    await notify([e.teacherId, ...(await managerIds())], { type: 'student.absence', title: 'غياب متكرر', body: `${student.name}${lvl ? ` (${lvl})` : ''}: غاب ${streak} أيام متتالية`, link: `/students/${student._id}` });
-  }
+  let startDate = '';
+  for (const r of recent) { if (r.status === 'absent') { streak += 1; startDate = r.date; } else break; }
+  if (streak < absenceThreshold) return;
+  const key = `${startDate}|${streak}`;
+  const claim = await Enrollment.updateOne({ _id: e._id, lastAbsenceAlert: { $ne: key } }, { $set: { lastAbsenceAlert: key } });
+  if (!claim.modifiedCount) return;
+  const lvl = e.levelId ? (await Level.findById(e.levelId).select('name').lean())?.name : null;
+  await notify([e.teacherId, ...(await managerIds())], { type: 'student.absence', title: 'غياب متكرر', body: `${student.name}${lvl ? ` (${lvl})` : ''}: غاب ${streak} أيام متتالية`, link: `/students/${student._id}` });
 }
 
 // ---------- الحضور (سجل واحد لكل تسجيل في اليوم، فحضور كل مستوى مستقل) ----------
@@ -171,7 +177,9 @@ enrollmentRecords.post('/notes', async (req, res, next) => {
     const text = String(req.body.text || '').trim().slice(0, 1000);
     if (!text) return res.status(400).json({ error: 'نص الملاحظة مطلوب' });
     if (!CATS.includes(req.body.category)) return res.status(400).json({ error: 'اختر تصنيف الملاحظة' });
-    const rec = await Note.create({ studentId: student._id, enrollmentId: e._id, date, category: req.body.category, text, createdBy: req.user._id });
+    // مرئية للطالب: بقرار المعلم، والافتراضي أنها مرئية لملاحظات الحفظ والمراجعة والعامة ومخفية للسلوك والانضباط
+    const visibleToStudent = typeof req.body.visibleToStudent === 'boolean' ? req.body.visibleToStudent : ['hifz', 'review', 'general'].includes(req.body.category);
+    const rec = await Note.create({ studentId: student._id, enrollmentId: e._id, date, category: req.body.category, text, visibleToStudent, createdBy: req.user._id });
     await audit(req, 'note.create', { targetType: 'student', target: student, details: { date, enrollmentId: String(e._id), category: rec.category } });
     res.status(201).json({ record: present('note', rec, req.user) });
   } catch (err) { next(err); }
@@ -197,6 +205,7 @@ recordEdit.patch('/:kind/:id', async (req, res, next) => {
     } else if (req.params.kind === 'note') {
       if (b.category !== undefined) { if (!CATS.includes(b.category)) return res.status(400).json({ error: 'تصنيف غير صحيح' }); rec.category = b.category; }
       if (b.text !== undefined) { const t = String(b.text).trim().slice(0, 1000); if (!t) return res.status(400).json({ error: 'نص الملاحظة مطلوب' }); rec.text = t; }
+      if (typeof b.visibleToStudent === 'boolean') rec.visibleToStudent = b.visibleToStudent;
     } else {
       const settings = await getSettings();
       const c = cleanRecitation({ ...before, ...b }, settings.gradeScale.map((g) => g.key));

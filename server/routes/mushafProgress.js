@@ -3,12 +3,12 @@ const mongoose = require('mongoose');
 const { z } = require('zod');
 const User = require('../models/User');
 const { Reader } = require('../models');
-const { requireAuth } = require('../middleware/auth');
+const { requireAnyAuth } = require('../middleware/auth');
 const { SURAHS } = require('../data/quran');
 
 // موضع قراءة المستخدم المسجل وإعداداته: مرتبط بحسابه فقط، ولا ينشئ سجلات طلاب ولا يدخل في سجل العمليات.
 const router = express.Router();
-router.use(requireAuth);
+router.use(requireAnyAuth);
 
 const present = (m) => (m ? { surah: m.surah, ayah: m.ayah, readerId: m.readerId ? String(m.readerId) : null, fontSize: m.fontSize, speed: m.speed, hide: !!m.hide, updatedAt: m.updatedAt } : null);
 
