@@ -2,7 +2,7 @@ const express = require('express');
 const mongoose = require('mongoose');
 const AuditLog = require('../models/AuditLog');
 const { requireAuth, requireRole } = require('../middleware/auth');
-const { isDateStr } = require('../utils/dates');
+const { isDateStr, dayStart, dayEnd } = require('../utils/dates');
 
 const router = express.Router();
 // للقراءة فقط. لا توجد أي مسارات تعديل أو حذف لسجل العمليات.
@@ -17,8 +17,8 @@ router.get('/', async (req, res, next) => {
     if (mongoose.isValidObjectId(req.query.actorId)) f.actorId = req.query.actorId;
     if (isDateStr(req.query.from) || isDateStr(req.query.to)) {
       f.createdAt = {};
-      if (isDateStr(req.query.from)) f.createdAt.$gte = new Date(req.query.from + 'T00:00:00Z');
-      if (isDateStr(req.query.to)) f.createdAt.$lte = new Date(req.query.to + 'T23:59:59Z');
+      if (isDateStr(req.query.from)) f.createdAt.$gte = dayStart(req.query.from);
+      if (isDateStr(req.query.to)) f.createdAt.$lte = dayEnd(req.query.to);
     }
     const [items, total] = await Promise.all([
       AuditLog.find(f).sort({ createdAt: -1 }).skip((page - 1) * limit).limit(limit).lean(),

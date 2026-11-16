@@ -55,11 +55,11 @@ router.get('/me', async (req, res, next) => {
 
     const attBy = group(attRecent), recBy = group(recs), noteBy = group(notes);
     const counts = {};
-    for (const c of attCounts) { const k = String(c._id.e); (counts[k] ||= { present: 0, absent: 0 })[c._id.s] = c.n; }
+    for (const c of attCounts) { const k = String(c._id.e); (counts[k] ||= { present: 0, absent: 0, excused: 0 })[c._id.s] = c.n; }
 
     const out = enrollments.map((e) => {
       const k = String(e._id);
-      const c = counts[k] || { present: 0, absent: 0 };
+      const c = counts[k] || { present: 0, absent: 0, excused: 0 };
       const total = c.present + c.absent;
       return {
         id: k,
@@ -71,7 +71,7 @@ router.get('/me', async (req, res, next) => {
         schedule: { days: e.schedule?.days || [], arrivalTime: e.schedule?.arrivalTime || '', startTime: e.schedule?.startTime || '', endTime: e.schedule?.endTime || '', notes: e.schedule?.notes || '' },
         nextSession: e.status === 'active' ? nextSession(e.schedule?.days, today) : null,
         progress: prog.get(k) || null,
-        attendance: { present: c.present, absent: c.absent, total, rate: total ? Math.round((c.present / total) * 100) : null, recent: (attBy.get(k) || []).slice(0, RECENT_ATT).map((r) => ({ date: r.date, status: r.status })) },
+        attendance: { present: c.present, absent: c.absent, excused: c.excused, total, rate: total ? Math.round((c.present / total) * 100) : null, recent: (attBy.get(k) || []).slice(0, RECENT_ATT).map((r) => ({ date: r.date, status: r.status })) },
         recitations: (recBy.get(k) || []).slice(0, RECENT_REC).map((r) => ({
           date: r.date, type: r.type, mode: r.mode, surah: r.surah, surahName: r.surah ? SURAHS[r.surah - 1]?.name : undefined,
           fromAyah: r.fromAyah, toAyah: r.toAyah, fromPage: r.fromPage, toPage: r.toPage, grade: r.grade || null,

@@ -18,7 +18,7 @@ async function statsFor(enrollmentIds, from, to) {
   const out = new Map();
   const get = (id) => {
     const k = String(id);
-    if (!out.has(k)) out.set(k, { present: 0, absent: 0, hifz: { count: 0, ayahs: 0, pages: 0, scores: [], grades: {} }, review: { count: 0, ayahs: 0, pages: 0, scores: [], grades: {} } });
+    if (!out.has(k)) out.set(k, { present: 0, absent: 0, excused: 0, hifz: { count: 0, ayahs: 0, pages: 0, scores: [], grades: {} }, review: { count: 0, ayahs: 0, pages: 0, scores: [], grades: {} } });
     return out.get(k);
   };
   enrollmentIds.forEach(get);

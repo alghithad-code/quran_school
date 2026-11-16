@@ -6,15 +6,17 @@ const { z } = require('zod');
 const User = require('../models/User');
 const config = require('../config');
 const { Student } = require('../models');
-const { requireSession } = require('../middleware/auth');
+const { requireSession, requireAnyAuth } = require('../middleware/auth');
 const { audit } = require('../utils/audit');
-const { isValidPassword, PASSWORD_MESSAGE } = require('../utils/password');
+const { revokeSessions } = require('../lib/sessions');
+const { normalizeUsername, checkPasswordChange } = require('../utils/account');
 
 const router = express.Router();
 
 const loginLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
-  limit: 20,
+  limit: 30, // محاولات فاشلة فقط لكل IP؛ الدخول الناجح لا يُحتسب فلا يتأثر من يشتركون في شبكة واحدة (مسجد/مدرسة)
+  skipSuccessfulRequests: true,
   standardHeaders: true,
   legacyHeaders: false,
   message: { error: 'محاولات كثيرة، حاول لاحقاً' },
@@ -86,24 +88,52 @@ router.post('/logout', requireSession, (req, res) => {
   });
 });
 
-const pwSchema = z.object({
-  currentPassword: z.string().min(1),
-  newPassword: z.string().max(200).refine(isValidPassword, PASSWORD_MESSAGE),
+// محاولات كلمة المرور الحالية الخاطئة عند تعديل الحساب (لكل حساب)، حمايةً من جلسة مسروقة
+const accountLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, limit: 8, skipSuccessfulRequests: true, standardHeaders: true, legacyHeaders: false,
+  keyGenerator: (req) => String(req.user._id),
+  message: { error: 'محاولات كثيرة، حاول لاحقاً' },
 });
 
-router.post('/change-password', requireSession, async (req, res, next) => {
+router.post('/change-password', requireSession, accountLimiter, async (req, res, next) => {
   try {
-    const parsed = pwSchema.safeParse(req.body);
-    if (!parsed.success) return res.status(400).json({ error: parsed.error.issues[0].message });
-    const user = await User.findById(req.user._id).select('+passwordHash');
-    if (!(await bcrypt.compare(parsed.data.currentPassword, user.passwordHash))) {
+    const bad = checkPasswordChange(req.body);
+    if (bad) return res.status(400).json({ error: bad });
+    const user = await User.findById(req.user._id).select('+passwordHash'); // الحساب صاحب الجلسة فقط
+    if (!(await bcrypt.compare(req.body.currentPassword, user.passwordHash))) {
       return res.status(400).json({ error: 'كلمة المرور الحالية غير صحيحة' });
     }
-    user.passwordHash = await bcrypt.hash(parsed.data.newPassword, 12);
+    user.passwordHash = await bcrypt.hash(req.body.newPassword, 12);
     user.mustChangePassword = false;
     await user.save();
+    await revokeSessions(user._id, req.sessionID); // تُنهى بقية جلسات الحساب، وتبقى الحالية
     await audit(req, 'user.change_password', { targetType: 'user', target: user });
     res.json({ ok: true });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// تغيير اسم المستخدم الخاص بالحساب. لا يمس الدور ولا الصلاحيات، والجلسة الحالية تبقى سارية.
+router.post('/change-username', requireAnyAuth, accountLimiter, async (req, res, next) => {
+  try {
+    const p = normalizeUsername(req.body?.username);
+    if (p.error) return res.status(400).json({ error: p.error });
+    if (typeof req.body?.currentPassword !== 'string' || !req.body.currentPassword) return res.status(400).json({ error: 'أدخل كلمة المرور الحالية' });
+    const user = await User.findById(req.user._id).select('+passwordHash');
+    if (!(await bcrypt.compare(req.body.currentPassword, user.passwordHash))) {
+      return res.status(400).json({ error: 'كلمة المرور الحالية غير صحيحة' });
+    }
+    const before = user.username;
+    if (p.value === before) return res.status(400).json({ error: 'اسم المستخدم الجديد مطابق للحالي' });
+    if (await User.exists({ username: p.value, _id: { $ne: user._id } })) return res.status(409).json({ error: 'اسم المستخدم مستخدم مسبقاً' });
+    user.username = p.value;
+    try { await user.save(); } catch (er) {
+      if (er.code === 11000) return res.status(409).json({ error: 'اسم المستخدم مستخدم مسبقاً' });
+      throw er;
+    }
+    await audit(req, 'user.change_username', { targetType: 'user', target: user, details: { before, after: user.username } });
+    res.json({ ok: true, user: user.toPublic() });
   } catch (err) {
     next(err);
   }

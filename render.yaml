@@ -3,7 +3,7 @@ services:
     name: quran-school
     runtime: node
     plan: free
-    buildCommand: npm install && npm run build
+    buildCommand: if [ -f package-lock.json ]; then npm ci; else npm install; fi && npm run build
     startCommand: npm start
     healthCheckPath: /api/health
     envVars:

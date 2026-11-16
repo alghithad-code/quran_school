@@ -18,17 +18,18 @@ router.get('/', async (req, res, next) => {
     const notifications = latestNotifs.map((n) => ({ id: n._id, title: n.title, body: n.body, link: n.link, read: n.read, at: n.createdAt }));
 
     if (!isManager(u)) {
-      const [students, present, absent, noEval, todayEnr, pending] = await Promise.all([
+      const [students, present, absent, noEval, todayEnr, pending, excused] = await Promise.all([
         countStudents(u, {}), countStudents(u, { filter: 'present_today' }), countStudents(u, { filter: 'absent_today' }), countStudents(u, { filter: 'no_eval_today' }),
         Enrollment.find({ ...enrollmentScope(u), status: 'active', 'schedule.days': weekday(today) }).sort({ 'schedule.arrivalTime': 1 }).limit(60).populate('studentId', 'name status').populate('levelId', 'name').lean(),
         PromotionRequest.countDocuments({ teacherId: u._id, status: 'pending' }),
+        countStudents(u, { filter: 'excused_today' }),
       ]);
       const list = todayEnr.filter((e) => e.studentId?.status === 'active');
       const att = await Attendance.find({ enrollmentId: { $in: list.map((e) => e._id) }, date: today }).select('enrollmentId status').lean();
       const am = Object.fromEntries(att.map((a) => [String(a.enrollmentId), a.status]));
       return res.json({
         role: 'teacher',
-        cards: { students, presentToday: present, absentToday: absent, noEvalToday: noEval, pendingPromotions: pending },
+        cards: { students, presentToday: present, absentToday: absent, excusedToday: excused, noEvalToday: noEval, pendingPromotions: pending },
         today: list.map((e) => ({ id: e._id, studentId: e.studentId._id, name: e.studentId.name, level: e.levelId?.name || null, arrivalTime: e.schedule?.arrivalTime, startTime: e.schedule?.startTime, endTime: e.schedule?.endTime, status: am[String(e._id)] || null })),
         notifications,
       });
@@ -37,7 +38,7 @@ router.get('/', async (req, res, next) => {
     const settings = await getSettings();
     const scores = scoreMap(settings);
     const monthFrom = addDays(today, -29);
-    const [students, teachersActive, teachersSuspended, present, absent, noEval, frequent, pending, perLevelRaw, levels, transfers, recs, noActive] = await Promise.all([
+    const [students, teachersActive, teachersSuspended, present, absent, noEval, frequent, pending, perLevelRaw, levels, transfers, recs, noActive, excused] = await Promise.all([
       Student.countDocuments({ status: 'active' }),
       User.countDocuments({ role: 'teacher', status: 'active' }),
       User.countDocuments({ role: 'teacher', status: 'suspended' }),
@@ -49,13 +50,14 @@ router.get('/', async (req, res, next) => {
       Transfer.find().sort({ createdAt: -1 }).limit(5).populate('studentId', 'name').populate('fromTeacherId toTeacherId', 'name').lean(),
       Recitation.find({ date: { $gte: monthFrom, $lte: today }, grade: { $ne: null } }).select('type grade').lean(),
       countStudents(u, { filter: 'no_active' }),
+      countStudents(u, { filter: 'excused_today' }),
     ]);
     const lm = Object.fromEntries(perLevelRaw.map((r) => [String(r._id), r.n]));
     const sc = (t) => avg(recs.filter((r) => r.type === t && r.grade in scores).map((r) => scores[r.grade]));
     res.json({
       role: 'manager',
       cards: {
-        students, teachersActive, teachersSuspended, presentToday: present, absentToday: absent,
+        students, teachersActive, teachersSuspended, presentToday: present, absentToday: absent, excusedToday: excused,
         attendanceRate: pct(present, present + absent), avgHifz: sc('hifz'), avgReview: sc('review'),
         noEvalToday: noEval, frequentAbsent: frequent, pendingPromotions: pending, noActive,
       },

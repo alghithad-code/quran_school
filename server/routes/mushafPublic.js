@@ -1,4 +1,5 @@
 const express = require('express');
+const zlib = require('zlib');
 const rateLimit = require('express-rate-limit');
 const { Reader } = require('../models');
 const { SURAHS } = require('../data/quran');
@@ -32,6 +33,22 @@ router.get('/surah/:n', (req, res) => {
   if (!s) return res.status(404).json({ error: 'غير موجود' });
   res.set('Cache-Control', 'public, max-age=86400');
   res.json(s);
+});
+
+// نص القرآن كاملاً في طلب واحد (نحو 270 كيلوبايت مضغوطاً) ليخزّنه المتصفح فتُقرأ كل السور دون إنترنت
+let allGz = null;
+router.get('/all', (req, res) => {
+  if (!available()) return res.status(503).json({ error: 'نص القرآن غير متاح' });
+  if (!allGz) {
+    const surahs = SURAHS.map((_, i) => getSurah(i + 1).ayahs);
+    allGz = zlib.gzipSync(JSON.stringify({ basmalah: surahs[0][0], surahs }));
+  }
+  res.set({ 'Cache-Control': 'public, max-age=86400', 'Content-Type': 'application/json; charset=utf-8' });
+  if (/\bgzip\b/.test(req.headers['accept-encoding'] || '')) {
+    res.set({ 'Content-Encoding': 'gzip', Vary: 'Accept-Encoding' });
+    return res.send(allGz);
+  }
+  res.send(zlib.gunzipSync(allGz));
 });
 
 router.get('/search', (req, res) => {

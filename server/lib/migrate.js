@@ -33,4 +33,16 @@ async function dropLegacyIndexes() {
   try { await mongoose.connection.db.collection('attendances').dropIndex('studentId_1_date_1'); console.log('حُذف فهرس الحضور القديم'); } catch { /* غير موجود */ }
 }
 
-module.exports = { migrate, dropLegacyIndexes };
+// حسابات طلاب يتيمة (حُذف طالبها قبل هذا الإصلاح): تُحذف مرة عند التشغيل، وآمن التكرار
+async function cleanOrphanStudentAccounts() {
+  const db = mongoose.connection.db;
+  const accts = await db.collection('users').find({ role: 'student', studentId: { $exists: true } }).project({ studentId: 1 }).toArray();
+  if (!accts.length) return;
+  const alive = new Set((await db.collection('students').find({ _id: { $in: accts.map((a) => a.studentId) } }).project({ _id: 1 }).toArray()).map((s) => String(s._id)));
+  const orphans = accts.filter((a) => !alive.has(String(a.studentId))).map((a) => a._id);
+  if (!orphans.length) return;
+  await db.collection('users').deleteMany({ _id: { $in: orphans } });
+  console.log(`حُذف ${orphans.length} حساب طالب يتيم`);
+}
+
+module.exports = { migrate, dropLegacyIndexes, cleanOrphanStudentAccounts };

@@ -143,7 +143,8 @@ router.get('/:id', async (req, res, next) => {
   } catch (err) { next(err); }
 });
 
-// بيانات الشخص (للمشرف ومدير النظام). موضع الحفظ والملاحظات الخاصة بكل مستوى تُعدَّل من التسجيل.
+// بيانات الشخص: للمشرف ومدير النظام، وللمعلم (طلابه فقط) إذا فعّل مدير النظام ذلك من الإعدادات.
+// المعلم يعدّل الاسم والعمر والهاتف وتاريخ الالتحاق فقط؛ الملاحظات العامة للإدارة. موضع الحفظ وملاحظات المستوى تُعدَّل من التسجيل.
 const updateSchema = z.object({
   name: z.string().trim().min(2).max(100).optional(),
   age,
@@ -152,9 +153,11 @@ const updateSchema = z.object({
   notes: z.string().trim().max(1000).optional(),
 });
 
-router.patch('/:id', manager, async (req, res, next) => {
+router.patch('/:id', async (req, res, next) => {
   try {
-    const s = await loadStudent(req, res);
+    const byManager = isManager(req.user);
+    if (!byManager && !(await getSettings()).teachersCanEditStudents) return res.status(403).json({ error: 'تعديل بيانات الطلاب غير مفعّل للمعلمين' });
+    const s = await loadStudent(req, res); // يحصر المعلم في طلابه
     if (!s) return;
     const p = updateSchema.safeParse(req.body);
     if (!p.success) return res.status(400).json({ error: p.error.issues[0].message });
@@ -171,9 +174,9 @@ router.patch('/:id', manager, async (req, res, next) => {
     }
     if (d.name !== undefined) s.name = d.name;
     if (req.body.age !== undefined) s.age = d.age;
-    if (d.notes !== undefined) s.notes = d.notes;
+    if (d.notes !== undefined && byManager) s.notes = d.notes;
     await s.save();
-    await audit(req, 'student.update', { targetType: 'student', target: s, details: { before, after: { name: s.name, age: s.age, phone: s.phone, enrolledAt: s.enrolledAt, notes: s.notes } } });
+    await audit(req, 'student.update', { targetType: 'student', target: s, details: { before, after: { name: s.name, age: s.age, phone: s.phone, enrolledAt: s.enrolledAt, notes: s.notes }, byTeacher: !byManager } });
     res.json({ student: presentStudent(s) });
   } catch (err) { next(err); }
 });
@@ -230,6 +233,7 @@ router.delete('/:id', manager, async (req, res, next) => {
         await Transfer.deleteMany(q, { session });
         await PromotionRequest.deleteMany(q, { session });
         await Group.updateMany({ studentIds: s._id }, { $pull: { studentIds: s._id } }, { session });
+        await User.deleteMany({ studentId: s._id, role: 'student' }, { session }); // حساب الطالب يُحذف معه
         await Student.deleteOne({ _id: s._id }, { session });
       });
     } finally { await session.endSession(); }

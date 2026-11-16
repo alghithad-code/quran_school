@@ -10,7 +10,7 @@ router.use(requireAuth);
 router.get('/', async (req, res, next) => {
   try {
     const s = await getSettings();
-    if (req.user.role !== 'admin') return res.json({ gradeScale: s.gradeScale, absenceThreshold: s.absenceThreshold, teachersCanAddStudents: s.teachersCanAddStudents });
+    if (req.user.role !== 'admin') return res.json({ gradeScale: s.gradeScale, absenceThreshold: s.absenceThreshold, teachersCanAddStudents: s.teachersCanAddStudents, teachersCanEditStudents: s.teachersCanEditStudents });
     res.json(s);
   } catch (e) { next(e); }
 });
@@ -23,8 +23,9 @@ const schema = z.object({
   })).min(2).max(10).optional(),
   auditRetentionDays: z.coerce.number().int().min(30, 'أقل مدة 30 يوماً').max(3650).optional(),
   absenceThreshold: z.coerce.number().int().min(1).max(30).optional(),
-  backupKeep: z.coerce.number().int().min(1).max(52).optional(),
+  teacherEditDays: z.coerce.number().int().min(0, 'من 0 إلى 365').max(365, 'من 0 إلى 365').optional(),
   teachersCanAddStudents: z.boolean().optional(),
+  teachersCanEditStudents: z.boolean().optional(),
 });
 
 router.patch('/', requireRole('admin'), async (req, res, next) => {

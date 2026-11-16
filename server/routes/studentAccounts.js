@@ -6,6 +6,7 @@ const User = require('../models/User');
 const { requireAuth, requireRole } = require('../middleware/auth');
 const { loadStudent } = require('../lib/access');
 const { audit } = require('../utils/audit');
+const { revokeSessions } = require('../lib/sessions');
 
 // حساب الطالب (اسم مستخدم وكلمة مرور). يُنشئه ويديره: المدير والمشرف، والمعلم لطلابه فقط (loadStudent يفرض العزل).
 // كلمة المرور المؤقتة تُعرض مرة واحدة للمنشئ، ويُلزَم الطالب بتغييرها عند أول دخول.
@@ -81,6 +82,7 @@ router.post('/reset-password', async (req, res, next) => {
     acct.failedLogins = 0;
     acct.lockUntil = null;
     await acct.save();
+    await revokeSessions(acct._id);
     await audit(req, 'studentAccount.reset_password', { targetType: 'student', target: student, details: { username: acct.username } });
     res.json({ account: present(acct), password });
   } catch (err) { next(err); }

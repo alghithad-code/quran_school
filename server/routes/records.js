@@ -8,6 +8,7 @@ const { notify, managerIds } = require('../lib/notify');
 const { audit } = require('../utils/audit');
 const { todayStr, addDays, isDateStr } = require('../utils/dates');
 const { SURAHS, PAGES } = require('../data/quran');
+const { cleanBatch } = require('../lib/recitationBatch');
 
 const studentRecords = express.Router({ mergeParams: true }); // GET /api/students/:id/records
 const enrollmentRecords = express.Router({ mergeParams: true }); // POST /api/enrollments/:eid/...
@@ -20,14 +21,20 @@ const MODELS = { attendance: Attendance, recitation: Recitation, note: Note };
 const CATS = ['hifz', 'review', 'behavior', 'discipline', 'general'];
 const int = (v) => (Number.isInteger(Number(v)) && v !== '' && v !== null ? Number(v) : NaN);
 
-// التاريخ: ليس في المستقبل. المعلم يسجل لليوم أو حتى 7 أيام سابقة؛ المشرف ومدير النظام بلا حد سابق.
-function checkDate(user, date) {
+// التاريخ: ليس في المستقبل. المعلم يسجّل ويعدّل ضمن مهلة يحددها مدير النظام (teacherEditDays، افتراضياً 7 أيام)؛ المشرف ومدير النظام بلا حد سابق.
+async function checkDate(user, date) {
   if (!isDateStr(date)) return 'التاريخ غير صحيح';
   const today = todayStr();
   if (date > today) return 'لا يمكن التسجيل بتاريخ مستقبلي';
-  if (!isManager(user) && date < addDays(today, -7)) return 'لا يمكن للمعلم التسجيل لأكثر من 7 أيام سابقة';
+  if (!isManager(user)) {
+    const { teacherEditDays: days } = await getSettings();
+    if (date < addDays(today, -days)) return days ? `لا يمكن للمعلم التسجيل لأكثر من ${days} يوماً سابقة` : 'لا يمكن للمعلم التسجيل إلا بتاريخ اليوم';
+  }
   return null;
 }
+// هل يملك المستخدم تعديل هذا السجل الآن؟ صاحب السجل (أو مشرف/مدير)، وللمعلم ضمن المهلة فقط
+const STATUSES = ['present', 'absent', 'excused']; // حاضر | غائب | غائب بعذر
+const canEditNow = (u, rec, days) => canEditRecord(u, rec) && (isManager(u) || rec.date >= addDays(todayStr(), -days));
 
 function cleanRecitation(b, gradeKeys) {
   const out = { type: b.type, mode: b.mode };
@@ -50,8 +57,8 @@ function cleanRecitation(b, gradeKeys) {
   return { value: out };
 }
 
-function present(kind, r, user) {
-  const base = { kind, id: String(r._id), enrollmentId: String(r.enrollmentId), date: r.date, at: r.createdAt, by: r.createdBy?.name ? { id: String(r.createdBy._id), name: r.createdBy.name } : null, editable: canEditRecord(user, { createdBy: r.createdBy?._id || r.createdBy }) };
+function present(kind, r, user, days = 365) {
+  const base = { kind, id: String(r._id), enrollmentId: String(r.enrollmentId), date: r.date, at: r.createdAt, by: r.createdBy?.name ? { id: String(r.createdBy._id), name: r.createdBy.name } : null, editable: canEditNow(user, { createdBy: r.createdBy?._id || r.createdBy, date: r.date }, days) };
   if (kind === 'attendance') return { ...base, status: r.status, note: r.note };
   if (kind === 'note') return { ...base, category: r.category, text: r.text, visibleToStudent: !!r.visibleToStudent };
   return { ...base, type: r.type, mode: r.mode, surah: r.surah, surahName: r.surah ? SURAHS[r.surah - 1]?.name : undefined, fromAyah: r.fromAyah, toAyah: r.toAyah, fromPage: r.fromPage, toPage: r.toPage, grade: r.grade };
@@ -68,6 +75,7 @@ studentRecords.get('/records', async (req, res, next) => {
       if (!mongoose.isValidObjectId(req.query.enrollmentId) || !ids.some((i) => String(i) === req.query.enrollmentId)) return res.status(404).json({ error: 'غير موجود' });
       ids = [req.query.enrollmentId];
     }
+    const { teacherEditDays } = await getSettings();
     const today = todayStr();
     const from = isDateStr(req.query.from) ? req.query.from : addDays(today, -6);
     const to = isDateStr(req.query.to) ? req.query.to : today;
@@ -80,9 +88,9 @@ studentRecords.get('/records', async (req, res, next) => {
       want('note') ? Note.find(q).populate('createdBy', 'name').limit(500).lean() : [],
     ]);
     const items = [
-      ...att.map((r) => present('attendance', r, req.user)),
-      ...hz.map((r) => present('recitation', r, req.user)),
-      ...note.map((r) => present('note', r, req.user)),
+      ...att.map((r) => present('attendance', r, req.user, teacherEditDays)),
+      ...hz.map((r) => present('recitation', r, req.user, teacherEditDays)),
+      ...note.map((r) => present('note', r, req.user, teacherEditDays)),
     ].sort((a, b) => (a.date === b.date ? new Date(b.at) - new Date(a.at) : a.date < b.date ? 1 : -1));
     res.json({ items, from, to });
   } catch (err) { next(err); }
@@ -104,7 +112,7 @@ async function absenceAlert(e, student) {
   const recent = await Attendance.find({ enrollmentId: e._id }).sort({ date: -1 }).limit(90).select('status date').lean();
   let streak = 0;
   let startDate = '';
-  for (const r of recent) { if (r.status === 'absent') { streak += 1; startDate = r.date; } else break; }
+  for (const r of recent) { if (r.status === 'absent') { streak += 1; startDate = r.date; } else if (r.status !== 'excused') break; } // الغياب بعذر لا يُحتسب ولا يقطع السلسلة
   if (streak < absenceThreshold) return;
   const key = `${startDate}|${streak}`;
   const claim = await Enrollment.updateOne({ _id: e._id, lastAbsenceAlert: { $ne: key } }, { $set: { lastAbsenceAlert: key } });
@@ -120,9 +128,9 @@ enrollmentRecords.post('/attendance', async (req, res, next) => {
     if (!ctx) return;
     const { e, student } = ctx;
     const date = req.body.date || todayStr();
-    const dErr = checkDate(req.user, date);
+    const dErr = await checkDate(req.user, date);
     if (dErr) return res.status(400).json({ error: dErr });
-    if (!['present', 'absent'].includes(req.body.status)) return res.status(400).json({ error: 'اختر حاضر أو غائب' });
+    if (!STATUSES.includes(req.body.status)) return res.status(400).json({ error: 'اختر حاضر أو غائب أو غائب بعذر' });
     const note = String(req.body.note || '').trim().slice(0, 300);
 
     const existing = await Attendance.findOne({ enrollmentId: e._id, date });
@@ -155,7 +163,7 @@ enrollmentRecords.post('/recitations', async (req, res, next) => {
     if (!ctx) return;
     const { e, student } = ctx;
     const date = req.body.date || todayStr();
-    const dErr = checkDate(req.user, date);
+    const dErr = await checkDate(req.user, date);
     if (dErr) return res.status(400).json({ error: dErr });
     const settings = await getSettings();
     const c = cleanRecitation(req.body, settings.gradeScale.map((g) => g.key));
@@ -166,13 +174,49 @@ enrollmentRecords.post('/recitations', async (req, res, next) => {
   } catch (err) { next(err); }
 });
 
+// ---------- تسجيل حفظ/مراجعة لعدة سور دفعة واحدة (سور مستوى الطالب فقط) ----------
+// كل أو لا شيء: تُحفظ كل السجلات في معاملة واحدة. requestId يجعل العملية آمنة عند الضغط المتكرر أو إعادة الإرسال.
+enrollmentRecords.post('/recitations/batch', async (req, res, next) => {
+  try {
+    const ctx = await loadActive(req, res);
+    if (!ctx) return;
+    const { e, student } = ctx;
+    const date = req.body.date || todayStr();
+    const dErr = await checkDate(req.user, date);
+    if (dErr) return res.status(400).json({ error: dErr });
+    const settings = await getSettings();
+    const level = e.levelId ? await Level.findById(e.levelId).select('surahs').lean() : null;
+    const c = cleanBatch(req.body, { levelSurahs: level?.surahs || [], gradeKeys: settings.gradeScale.map((g) => g.key) });
+    if (c.error) return res.status(400).json({ error: c.error });
+    const { type, items, requestId } = c.value;
+
+    const existing = requestId ? await Recitation.find({ enrollmentId: e._id, batchId: requestId }).populate('createdBy', 'name').lean() : [];
+    if (existing.length) return res.json({ duplicate: true, records: existing.map((r) => present('recitation', r, req.user)) });
+
+    const docs = items.map((it) => ({ ...it, type, mode: 'surah', studentId: student._id, enrollmentId: e._id, date, createdBy: req.user._id, ...(requestId ? { batchId: requestId } : {}) }));
+    let created;
+    try {
+      const session = await mongoose.startSession();
+      try { await session.withTransaction(async () => { created = await Recitation.insertMany(docs, { session }); }); } finally { session.endSession(); }
+    } catch (er) {
+      if (er.code === 11000 && requestId) { // طلب متزامن بنفس المعرّف سبقنا
+        const again = await Recitation.find({ enrollmentId: e._id, batchId: requestId }).populate('createdBy', 'name').lean();
+        return res.json({ duplicate: true, records: again.map((r) => present('recitation', r, req.user)) });
+      }
+      throw er;
+    }
+    await audit(req, 'recitation.batch', { targetType: 'student', target: student, details: { date, enrollmentId: String(e._id), type, items: items.map((i) => `${SURAHS[i.surah - 1].name} ${i.fromAyah}-${i.toAyah}${i.grade ? ` (${i.grade})` : ''}`) } });
+    res.status(201).json({ duplicate: false, records: created.map((r) => present('recitation', r, req.user)) });
+  } catch (err) { next(err); }
+});
+
 enrollmentRecords.post('/notes', async (req, res, next) => {
   try {
     const ctx = await loadActive(req, res);
     if (!ctx) return;
     const { e, student } = ctx;
     const date = req.body.date || todayStr();
-    const dErr = checkDate(req.user, date);
+    const dErr = await checkDate(req.user, date);
     if (dErr) return res.status(400).json({ error: dErr });
     const text = String(req.body.text || '').trim().slice(0, 1000);
     if (!text) return res.status(400).json({ error: 'نص الملاحظة مطلوب' });
@@ -196,11 +240,13 @@ recordEdit.patch('/:kind/:id', async (req, res, next) => {
     if (!ctx) return;
     const { student } = ctx;
     if (!canEditRecord(req.user, rec)) return res.status(403).json({ error: 'لا يمكنك تعديل سجل أنشأه معلم آخر' });
+    const { teacherEditDays } = await getSettings();
+    if (!canEditNow(req.user, rec, teacherEditDays)) return res.status(403).json({ error: 'انتهت مهلة تعديل هذا السجل. راجع المشرف لتعديله.' });
     const before = rec.toObject();
     const b = req.body || {};
 
     if (req.params.kind === 'attendance') {
-      if (b.status !== undefined) { if (!['present', 'absent'].includes(b.status)) return res.status(400).json({ error: 'حالة غير صحيحة' }); rec.status = b.status; }
+      if (b.status !== undefined) { if (!STATUSES.includes(b.status)) return res.status(400).json({ error: 'حالة غير صحيحة' }); rec.status = b.status; }
       if (b.note !== undefined) rec.note = String(b.note).trim().slice(0, 300);
     } else if (req.params.kind === 'note') {
       if (b.category !== undefined) { if (!CATS.includes(b.category)) return res.status(400).json({ error: 'تصنيف غير صحيح' }); rec.category = b.category; }
@@ -215,8 +261,9 @@ recordEdit.patch('/:kind/:id', async (req, res, next) => {
     rec.updatedBy = req.user._id;
     await rec.save();
     await audit(req, `${req.params.kind}.update`, { targetType: 'student', target: student, details: { date: rec.date, enrollmentId: String(rec.enrollmentId), before, after: rec.toObject() } });
+    if (req.params.kind === 'attendance' && rec.status === 'absent') await absenceAlert(ctx.e, student); // نفس سلوك التسجيل الجديد
     await rec.populate('createdBy', 'name');
-    res.json({ record: present(req.params.kind, rec, req.user) });
+    res.json({ record: present(req.params.kind, rec, req.user, teacherEditDays) });
   } catch (err) { next(err); }
 });
 
@@ -228,9 +275,9 @@ bulkAttendance.post('/', async (req, res, next) => {
     const ids = [...new Set((Array.isArray(req.body?.enrollmentIds) ? req.body.enrollmentIds : []).map(String))];
     if (!ids.length || ids.length > 200 || !ids.every((i) => mongoose.isValidObjectId(i))) return res.status(400).json({ error: 'اختر طالباً واحداً على الأقل' });
     const status = req.body?.status;
-    if (!['present', 'absent'].includes(status)) return res.status(400).json({ error: 'اختر حاضر أو غائب' });
+    if (!STATUSES.includes(status)) return res.status(400).json({ error: 'اختر حاضر أو غائب أو غائب بعذر' });
     const date = req.body?.date || todayStr();
-    const dErr = checkDate(req.user, date);
+    const dErr = await checkDate(req.user, date);
     if (dErr) return res.status(400).json({ error: dErr });
 
     // العزل: المعلم لا يحضّر إلا تسجيلاته النشطة

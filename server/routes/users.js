@@ -6,6 +6,7 @@ const User = require('../models/User');
 const { Enrollment, Level } = require('../models');
 const { requireAuth, requireRole } = require('../middleware/auth');
 const { audit } = require('../utils/audit');
+const { revokeSessions } = require('../lib/sessions');
 const { normalizePhone, whatsappLink, PHONE_MESSAGE } = require('../utils/phone');
 const { isValidPassword, PASSWORD_MESSAGE } = require('../utils/password');
 
@@ -80,7 +81,7 @@ const updateSchema = z.object({
 router.get('/', async (req, res, next) => {
   try {
     const page = Math.max(1, parseInt(req.query.page) || 1);
-    const limit = Math.min(50, Math.max(1, parseInt(req.query.limit) || 20));
+    const limit = Math.min(200, Math.max(1, parseInt(req.query.limit) || 20));
     const filter = {};
     // المشرف لا يرى إلا المعلمين
     if (req.user.role === 'supervisor') filter.role = 'teacher';
@@ -224,6 +225,7 @@ router.post('/:id/reset-password', async (req, res, next) => {
     target.failedLogins = 0;
     target.lockUntil = null;
     await target.save();
+    await revokeSessions(target._id); // الجلسات القديمة لهذا الحساب تنتهي
     await audit(req, 'user.reset_password', { targetType: 'user', target });
     res.json({ ok: true });
   } catch (err) {

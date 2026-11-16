@@ -5,7 +5,6 @@ const mongoose = require('mongoose');
 const User = require('../models/User');
 const AuditLog = require('../models/AuditLog');
 const M = require('../models');
-const { getSettings } = require('./settings');
 
 const gzip = promisify(zlib.gzip);
 const gunzip = promisify(zlib.gunzip);
@@ -59,12 +58,14 @@ async function createBackup(kind, userId = null) {
   }
 }
 
-// نحتفظ بآخر N نسخة تلقائية فقط. النسخ اليدوية وما قبل الاستعادة لا تُحذف تلقائياً (إلا أقدم من آخر 5 قبل-الاستعادة).
+// نسخة تلقائية أسبوعياً، ونحتفظ بأحدث 3 نسخ ناجحة (تلقائية أو يدوية أو مرفوعة) ونحذف ما سواها.
+// نسخ «قبل الاستعادة» يُبقى آخر اثنتين فقط، وسجلات الفشل آخر ثلاثة.
+const KEEP = 3;
 async function prune() {
-  const { backupKeep } = await getSettings();
   const rm = async (list) => { for (const b of list) { try { if (b.fileId) await bucket().delete(b.fileId); } catch { /* الملف محذوف مسبقاً */ } await b.deleteOne(); } };
-  await rm((await M.Backup.find({ kind: 'auto' }).sort({ createdAt: -1 }).skip(backupKeep)));
-  await rm((await M.Backup.find({ kind: 'pre-restore' }).sort({ createdAt: -1 }).skip(5)));
+  await rm(await M.Backup.find({ kind: { $in: ['auto', 'manual', 'uploaded'] }, status: 'success' }).sort({ createdAt: -1 }).skip(KEEP));
+  await rm(await M.Backup.find({ kind: 'pre-restore', status: 'success' }).sort({ createdAt: -1 }).skip(2));
+  await rm(await M.Backup.find({ status: 'failed' }).sort({ createdAt: -1 }).skip(3));
 }
 
 // يتحقق من سلامة الملف قبل أي استعادة: الصيغة، الأعداد، وجود مدير نظام نشط

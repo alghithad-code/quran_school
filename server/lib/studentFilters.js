@@ -19,8 +19,9 @@ async function buildEnrollmentFilter(user, q = {}) {
 
   switch (q.filter) {
     case 'present_today':
-    case 'absent_today': {
-      const ids = await Attendance.distinct('enrollmentId', { date: today, status: q.filter === 'present_today' ? 'present' : 'absent' });
+    case 'absent_today':
+    case 'excused_today': {
+      const ids = await Attendance.distinct('enrollmentId', { date: today, status: { present_today: 'present', absent_today: 'absent', excused_today: 'excused' }[q.filter] });
       and.push({ _id: { $in: ids } });
       break;
     }

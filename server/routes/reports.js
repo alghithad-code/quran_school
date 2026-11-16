@@ -7,7 +7,7 @@ const { requireAuth, requireRole } = require('../middleware/auth');
 const { loadStudent, isManager, enrollmentScope } = require('../lib/access');
 const { statsFor, pct } = require('../lib/stats');
 const { buildEnrollmentFilter } = require('../lib/studentFilters');
-const { resolvePeriod, weekday, addDays, todayStr } = require('../utils/dates');
+const { resolvePeriod, weekday, addDays, todayStr, dayStart, dayEnd, dateOf } = require('../utils/dates');
 
 const router = express.Router();
 router.use(requireAuth);
@@ -28,7 +28,7 @@ async function studentReport(s, enrollments, period) {
   const ids = enrollments.map((e) => e._id);
   const { stats, settings } = await statsFor(ids, period.from, period.to);
   const labels = Object.fromEntries(settings.gradeScale.map((g) => [g.key, g.label]));
-  const range = { $gte: new Date(period.from + 'T00:00:00Z'), $lte: new Date(period.to + 'T23:59:59Z') };
+  const range = { $gte: dayStart(period.from), $lte: dayEnd(period.to) };
   const [changes, notes] = await Promise.all([
     LevelChange.find({ enrollmentId: { $in: ids }, createdAt: range }).populate('fromLevelId toLevelId', 'name').lean(),
     Note.find({ enrollmentId: { $in: ids }, date: { $gte: period.from, $lte: period.to } }).sort({ date: 1 }).populate('createdBy', 'name').lean(),
@@ -40,7 +40,7 @@ async function studentReport(s, enrollments, period) {
     const st = stats.get(String(e._id));
     const p = multi ? `${lvlName(e)} — ` : '';
     summary.push(
-      [`${p}أيام الحضور`, st.present], [`${p}أيام الغياب`, st.absent], [`${p}نسبة الحضور`, `${st.rate}%`],
+      [`${p}أيام الحضور`, st.present], [`${p}أيام الغياب`, st.absent], [`${p}أيام الغياب بعذر`, st.excused], [`${p}نسبة الحضور`, `${st.rate}%`],
       [`${p}الحفظ الجديد`, qty(st.hifz)], [`${p}متوسط تقييم الحفظ`, fmt(st.hifz.avg)], [`${p}توزيع تقييمات الحفظ`, gradeText(st.hifz, labels)],
       [`${p}المراجعة`, qty(st.review)], [`${p}متوسط تقييم المراجعة`, fmt(st.review.avg)], [`${p}توزيع تقييمات المراجعة`, gradeText(st.review, labels)],
     );
@@ -49,7 +49,7 @@ async function studentReport(s, enrollments, period) {
   return {
     title: `تقرير الطالب: ${s.name}`, period, summary,
     tables: [
-      { title: 'تطور المستوى', columns: ['التاريخ', 'المستوى', 'النوع', 'من', 'إلى', 'السبب'], rows: changes.map((c) => [c.createdAt.toISOString().slice(0, 10), nameOf[String(c.enrollmentId)] || '—', LVL[c.type], fmt(c.fromLevelId?.name), c.toLevelId?.name, c.reason || '—']) },
+      { title: 'تطور المستوى', columns: ['التاريخ', 'المستوى', 'النوع', 'من', 'إلى', 'السبب'], rows: changes.map((c) => [dateOf(c.createdAt), nameOf[String(c.enrollmentId)] || '—', LVL[c.type], fmt(c.fromLevelId?.name), c.toLevelId?.name, c.reason || '—']) },
       { title: 'الملاحظات المهمة', columns: ['التاريخ', 'المستوى', 'التصنيف', 'الملاحظة', 'الكاتب'], rows: notes.map((n) => [n.date, nameOf[String(n.enrollmentId)] || '—', CAT[n.category], n.text, n.createdBy?.name || '—']) },
     ],
   };
@@ -73,13 +73,13 @@ async function groupReport(enrollments, period) {
   const ids = enrollments.map((e) => e._id);
   const { stats, attRows } = await statsFor(ids, period.from, period.to);
   const agg = (fn) => ids.reduce((a, id) => a + fn(stats.get(String(id))), 0);
-  const present = agg((s) => s.present), absent = agg((s) => s.absent);
+  const present = agg((s) => s.present), absent = agg((s) => s.absent), excused = agg((s) => s.excused);
   const mean = (t) => { const all = ids.flatMap((id) => stats.get(String(id))[t].scores); return all.length ? Math.round((all.reduce((a, b) => a + b, 0) / all.length) * 100) / 100 : null; };
-  const rows = enrollments.map((e) => { const x = stats.get(String(e._id)); return [`${e.studentId?.name || '—'}${e.levelId ? ` (${e.levelId.name})` : ''}`, x.present, x.absent, `${x.rate}%`, qty(x.hifz), fmt(x.hifz.avg), qty(x.review), fmt(x.review.avg)]; });
+  const rows = enrollments.map((e) => { const x = stats.get(String(e._id)); return [`${e.studentId?.name || '—'}${e.levelId ? ` (${e.levelId.name})` : ''}`, x.present, x.absent, x.excused, `${x.rate}%`, qty(x.hifz), fmt(x.hifz.avg), qty(x.review), fmt(x.review.avg)]; });
   return {
-    stats, present, absent, hifzAvg: mean('hifz'), reviewAvg: mean('review'),
+    stats, present, absent, excused, hifzAvg: mean('hifz'), reviewAvg: mean('review'),
     commit: commitmentRate(enrollments, attRows, period),
-    table: { title: 'أداء الطلاب (لكل مستوى)', columns: ['الطالب (المستوى)', 'حضور', 'غياب', 'نسبة الحضور', 'الحفظ', 'متوسط الحفظ', 'المراجعة', 'متوسط المراجعة'], rows },
+    table: { title: 'أداء الطلاب (لكل مستوى)', columns: ['الطالب (المستوى)', 'حضور', 'غياب', 'غياب بعذر', 'نسبة الحضور', 'الحفظ', 'متوسط الحفظ', 'المراجعة', 'متوسط المراجعة'], rows },
   };
 }
 const popE = (q) => q.populate('studentId', 'name status').populate('levelId', 'name').populate('teacherId', 'name');
@@ -106,7 +106,7 @@ router.get('/teacher/:id', async (req, res, next) => {
     const g = await groupReport(enrs, period);
     send(req, res, {
       title: `تقرير المعلم: ${t.name}`, period,
-      summary: [['عدد الطلاب', distinct(enrs)], ['عدد التسجيلات (المستويات)', enrs.length], ['إجمالي الحضور', g.present], ['إجمالي الغياب', g.absent], ['نسبة الحضور', `${pct(g.present, g.present + g.absent)}%`], ['متوسط تقييم الحفظ', fmt(g.hifzAvg)], ['متوسط تقييم المراجعة', fmt(g.reviewAvg)], ['نسبة تسجيل الحضور في مواعيد الجدول', g.commit === null ? '—' : `${g.commit}%`]],
+      summary: [['عدد الطلاب', distinct(enrs)], ['عدد التسجيلات (المستويات)', enrs.length], ['إجمالي الحضور', g.present], ['إجمالي الغياب', g.absent], ['إجمالي الغياب بعذر', g.excused], ['نسبة الحضور', `${pct(g.present, g.present + g.absent)}%`], ['متوسط تقييم الحفظ', fmt(g.hifzAvg)], ['متوسط تقييم المراجعة', fmt(g.reviewAvg)], ['نسبة تسجيل الحضور في مواعيد الجدول', g.commit === null ? '—' : `${g.commit}%`]],
       tables: [g.table],
     });
   } catch (err) { next(err); }
@@ -120,7 +120,7 @@ router.get('/school', requireRole('admin', 'supervisor'), async (req, res, next)
     const enrs = all.filter((e) => e.studentId?.status === 'active').sort((a, b) => (a.studentId.name > b.studentId.name ? 1 : -1));
     const g = await groupReport(enrs, period);
     const [teachers, levels] = await Promise.all([User.countDocuments({ role: 'teacher', status: 'active' }), Level.find().sort({ order: 1 }).lean()]);
-    const range = { $gte: new Date(period.from + 'T00:00:00Z'), $lte: new Date(period.to + 'T23:59:59Z') };
+    const range = { $gte: dayStart(period.from), $lte: dayEnd(period.to) };
     const [transfers, promos] = await Promise.all([Transfer.countDocuments({ createdAt: range }), PromotionRequest.find({ createdAt: range }).select('status').lean()]);
     const byLevel = levels.map((l) => [l.name, enrs.filter((e) => String(e.levelId?._id) === String(l._id)).length]);
     const noLevel = enrs.filter((e) => !e.levelId).length;
@@ -134,7 +134,7 @@ router.get('/school', requireRole('admin', 'supervisor'), async (req, res, next)
     });
     send(req, res, {
       title: 'تقرير المجتمع', period,
-      summary: [['إجمالي الطلاب', distinct(enrs)], ['إجمالي التسجيلات (المستويات)', enrs.length], ['إجمالي المعلمين النشطين', teachers], ['الحضور', g.present], ['الغياب', g.absent], ['نسبة الحضور', `${pct(g.present, g.present + g.absent)}%`], ['متوسط تقييم الحفظ', fmt(g.hifzAvg)], ['متوسط تقييم المراجعة', fmt(g.reviewAvg)], ['عمليات النقل في الفترة', transfers], ['طلبات الترقية في الفترة', `${promos.length} (معلّق ${promos.filter((p) => p.status === 'pending').length}، موافق ${promos.filter((p) => p.status === 'approved').length}، مرفوض ${promos.filter((p) => p.status === 'rejected').length})`]],
+      summary: [['إجمالي الطلاب', distinct(enrs)], ['إجمالي التسجيلات (المستويات)', enrs.length], ['إجمالي المعلمين النشطين', teachers], ['الحضور', g.present], ['الغياب', g.absent], ['الغياب بعذر', g.excused], ['نسبة الحضور', `${pct(g.present, g.present + g.absent)}%`], ['متوسط تقييم الحفظ', fmt(g.hifzAvg)], ['متوسط تقييم المراجعة', fmt(g.reviewAvg)], ['عمليات النقل في الفترة', transfers], ['طلبات الترقية في الفترة', `${promos.length} (معلّق ${promos.filter((p) => p.status === 'pending').length}، موافق ${promos.filter((p) => p.status === 'approved').length}، مرفوض ${promos.filter((p) => p.status === 'rejected').length})`]],
       tables: [
         { title: 'توزيع التسجيلات على المستويات', columns: ['المستوى', 'عدد الطلاب'], rows: byLevel },
         { title: 'توزيع الطلاب على المعلمين', columns: ['المعلم', 'عدد الطلاب', 'نسبة الحضور'], rows: byTeacher },

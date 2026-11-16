@@ -5,6 +5,7 @@ const { Reader } = require('../models');
 const { requireAuth, requireRole } = require('../middleware/auth');
 const { validateTemplate, presentReader } = require('../lib/readers');
 const { audit } = require('../utils/audit');
+const { refreshReaderHosts } = require('../lib/readerHosts');
 
 // إدارة قراء المصحف: لمدير النظام فقط
 const router = express.Router();
@@ -27,6 +28,7 @@ router.post('/', async (req, res, next) => {
     if (t.error) return res.status(400).json({ error: t.error });
     const last = await Reader.findOne({}).sort({ order: -1 }).select('order').lean();
     const r = await Reader.create({ name: p.data.name, urlTemplate: t.value, order: (last?.order || 0) + 1, createdBy: req.user._id });
+    refreshReaderHosts();
     await audit(req, 'reader.create', { targetType: 'reader', target: r, details: { urlTemplate: r.urlTemplate } });
     res.status(201).json({ reader: presentReader(r, true) });
   } catch (e) { next(e); }
@@ -49,6 +51,7 @@ router.patch('/:id', async (req, res, next) => {
     if (p.data.enabled !== undefined) r.enabled = p.data.enabled;
     if (p.data.order !== undefined) r.order = p.data.order;
     await r.save();
+    refreshReaderHosts();
     await audit(req, 'reader.update', { targetType: 'reader', target: r, details: { before, after: { name: r.name, urlTemplate: r.urlTemplate, enabled: r.enabled, order: r.order } } });
     res.json({ reader: presentReader(r, true) });
   } catch (e) { next(e); }
@@ -60,6 +63,7 @@ router.delete('/:id', async (req, res, next) => {
     const r = await Reader.findById(req.params.id);
     if (!r) return res.status(404).json({ error: 'غير موجود' });
     await r.deleteOne();
+    refreshReaderHosts();
     await audit(req, 'reader.delete', { targetType: 'reader', target: r, details: { urlTemplate: r.urlTemplate } });
     res.json({ ok: true });
   } catch (e) { next(e); }

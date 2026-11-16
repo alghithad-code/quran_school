@@ -87,7 +87,7 @@ const recordBase = {
 };
 
 const Attendance = mongoose.model('Attendance', (() => {
-  const s = new Schema({ ...recordBase, status: { type: String, enum: ['present', 'absent'], required: true }, note: { type: String, default: '', maxlength: 300 } }, { timestamps: true });
+  const s = new Schema({ ...recordBase, status: { type: String, enum: ['present', 'absent', 'excused'], required: true }, note: { type: String, default: '', maxlength: 300 } }, { timestamps: true });
   s.index({ enrollmentId: 1, date: 1 }, { unique: true }); // سجل حضور واحد لكل تسجيل في اليوم
   s.index({ studentId: 1, date: -1 });
   s.index({ date: 1, status: 1 });
@@ -102,8 +102,10 @@ const Recitation = mongoose.model('Recitation', (() => {
     surah: Number, fromAyah: Number, toAyah: Number,
     fromPage: Number, toPage: Number,
     grade: { type: String, default: null }, // مفتاح من سلّم التقييم
+    batchId: { type: String }, // معرّف عملية التسجيل الجماعي: يمنع تكرارها عند الضغط المتكرر أو إعادة الإرسال (السجلات القديمة بلا هذا الحقل)
   }, { timestamps: true });
   s.index({ enrollmentId: 1, date: -1 });
+  s.index({ batchId: 1, surah: 1 }, { unique: true, partialFilterExpression: { batchId: { $type: 'string' } } });
   s.index({ studentId: 1, date: -1 });
   s.index({ date: 1, type: 1 });
   return s;

@@ -2,6 +2,7 @@ const path = require('path');
 const fs = require('fs');
 const express = require('express');
 const helmet = require('helmet');
+const { connectHosts } = require('./lib/readerHosts');
 const session = require('express-session');
 const MongoStore = require('connect-mongo');
 const config = require('./config');
@@ -19,8 +20,8 @@ function buildApp() {
           styleSrc: ["'self'", "'unsafe-inline'", 'https://fonts.googleapis.com'],
           fontSrc: ["'self'", 'https://fonts.gstatic.com'],
           imgSrc: ["'self'", 'data:'],
-          mediaSrc: ["'self'", 'https:'], // تلاوات المصحف تُبث من مصدر خارجي بـ https (عنصر صوت فقط، لا ينفّذ شيفرة)
-          connectSrc: ["'self'"],
+          mediaSrc: ["'self'", 'https:', 'blob:'], // تلاوات المصحف تُبث من مصدر خارجي بـ https (عنصر صوت فقط، لا ينفّذ شيفرة)
+          connectSrc: ["'self'", 'https://fonts.googleapis.com', 'https://fonts.gstatic.com', (req, res) => connectHosts()], // الخطوط (للعمل دون إنترنت) ونطاقات القراء (تحميل التلاوات)
           frameAncestors: ["'none'"],
         },
       },
