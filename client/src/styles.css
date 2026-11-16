@@ -238,3 +238,18 @@ body.mushaf-open .bottom { display: none; }
 .dots i.bad { background: #c0392b; }
 .srow { display: grid; gap: 3px; margin: 10px 0; }
 .srow .row { margin-bottom: 0; }
+/* غائب بعذر */
+.ibtn.warn { color: #b54708; } .ibtn.warn.on { background: #b54708; border-color: #b54708; color: #fff; }
+.btn.seg.warn.on { background: #b54708; border-color: #b54708; }
+.dots i.warn { background: #d99a1c; }
+/* التسجيل الجماعي وقائمة السور */
+.bsurahs { max-height: 46vh; overflow-y: auto; border: 1px solid var(--bd); border-radius: 12px; padding: 4px 10px; background: #fff; }
+.bsurah { padding: 8px 0; border-bottom: 1px solid var(--bd); } .bsurah:last-child { border-bottom: 0; }
+.bsurah.on { background: #fffaf0; margin: 0 -10px; padding: 8px 10px; }
+.bsub { margin-top: 8px; padding-inline-start: 32px; }
+.bsub label { margin-bottom: 0; }
+.sbtn { display: grid; gap: 4px; width: 100%; text-align: start; background: var(--card); border: 1px solid var(--bd); border-radius: 12px; padding: 10px 12px; margin-bottom: 8px; font: inherit; color: var(--tx); cursor: pointer; }
+.sbtn:hover { border-color: var(--gold2); }
+.sbtn .two { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.sbtn .two small { display: block; margin-bottom: 3px; }
+.prog.rev .pbar i { background: linear-gradient(90deg, #7aa7d9, #3b6fb0); }

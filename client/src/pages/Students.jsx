@@ -29,7 +29,7 @@ export default function Students({ me, online, query, embedded = false, onFilter
   const key = JSON.stringify(query);
 
   useEffect(() => {
-    if (isManager) api('/users?role=teacher&status=active&limit=50').then((d) => setTeachers(d.items)).catch(() => {});
+    if (isManager) api('/users?role=teacher&status=active&limit=200').then((d) => setTeachers(d.items)).catch(() => {});
     api('/levels').then((d) => setLevels(d.items)).catch(() => {});
   }, [isManager]);
 
@@ -61,7 +61,7 @@ export default function Students({ me, online, query, embedded = false, onFilter
     try {
       const r = await api('/attendance/bulk', { method: 'POST', body: { enrollmentIds: [...sel], status } });
       patchEnr(new Set(r.done), status);
-      let msg = `تم تسجيل ${status === 'present' ? 'حضور' : 'غياب'} ${r.done.length} تسجيل`;
+      let msg = `تم تسجيل ${{ present: 'حضور', absent: 'غياب', excused: 'غياب بعذر' }[status]} ${r.done.length} تسجيل`;
       if (r.skipped.length) msg += ` — تعذّر ${r.skipped.length} (سجلهم لمعلم آخر): ${r.skipped.slice(0, 3).join('، ')}`;
       flash.ok(msg); setSel(new Set());
     } catch (er) { flash.err(er); } finally { setBusy(false); }
@@ -150,6 +150,7 @@ export default function Students({ me, online, query, embedded = false, onFilter
             <div className="irow">
               <IconBtn icon="check" tone="ok" caption="تحضير" label="تحضير المحدد حاضرين" disabled={!online || busy} onClick={() => bulk('present')} />
               <IconBtn icon="x" tone="danger" caption="غياب" label="تسجيل المحدد غائبين" disabled={!online || busy} onClick={() => bulk('absent')} />
+              <IconBtn icon="clock" tone="warn" caption="بعذر" label="تسجيل المحدد غائبين بعذر" disabled={!online || busy} onClick={() => bulk('excused')} />
               {isManager && <IconBtn icon="repeat" label="نقل المحدد" caption="نقل" disabled={!online} onClick={() => setMove({ to: '' })} />}
               {isManager && <IconBtn icon="grid" label="إضافة المحدد إلى مجموعة" caption="مجموعة" disabled={!online} onClick={openGroups} />}
             </div>
@@ -178,11 +179,13 @@ export default function Students({ me, online, query, embedded = false, onFilter
                 {e.schedule?.arrivalTime && <span className="m"><Icon name="clock" size={14} />يحضر {fmtTime(e.schedule.arrivalTime)}</span>}
                 {e.status !== 'active' && <span className="tag bad">منتهٍ</span>}
               </div>
-              {e.progress && <Progress thin pct={e.progress.pct} label={`تقدّم ${e.level?.name}: ${e.progress.pct}% (${e.progress.memorized} من ${e.progress.total} آية)`} />}
+              {e.progress && <Progress thin pct={e.progress.pct} label={`حفظ ${e.level?.name}: ${e.progress.pct}% (${e.progress.memorized} من ${e.progress.total} آية)`} />}
+              {e.progress?.review && <Progress thin tone="rev" pct={e.progress.review.pct} label={`مراجعة: ${e.progress.review.pct}% (${e.progress.review.reviewed} من ${e.progress.total} آية)`} />}
               <div className="irow">
                 {markable(s, e) && <IconBtn icon="check" tone="sel" on={sel.has(e.id)} label="تحديد" onClick={() => toggleSel(e.id)} />}
                 {markable(s, e) && <IconBtn icon="check" tone={e.today === 'present' ? 'on' : 'ok'} on={e.today === 'present'} caption="حاضر" label="تسجيل حضور" disabled={!online} onClick={() => mark(e, 'present')} />}
                 {markable(s, e) && <IconBtn icon="x" tone={e.today === 'absent' ? 'bad on' : 'danger'} on={e.today === 'absent'} caption="غائب" label="تسجيل غياب" disabled={!online} onClick={() => mark(e, 'absent')} />}
+                {markable(s, e) && <IconBtn icon="clock" tone={e.today === 'excused' ? 'warn on' : 'warn'} on={e.today === 'excused'} caption="بعذر" label="تسجيل غياب بعذر" disabled={!online} onClick={() => mark(e, 'excused')} />}
                 <IconBtn icon="edit" label="موضع الحفظ وملاحظات هذا المستوى" disabled={!online} onClick={() => setEditE({ id: e.id, name: s.name, level: e.level?.name, position: e.position, notes: e.notes })} />
               </div>
             </div>

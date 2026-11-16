@@ -3,12 +3,13 @@ import { api } from '../api.js';
 import { SURAHS } from '../quran.js';
 import { QuranReader } from '../quranReader.jsx';
 import StudentAccount from './StudentAccount.jsx';
-import { BackLink, CAT_AR, DAYS_AR, ErrorBox, IconBtn, Loading, Modal, Progress, STATUS_AR, fmtDT, fmtTime, go, gradeLabel, qs, todayStr, useFlash, useLoad, useSettings } from '../ui.jsx';
+import BatchRecordForm from './BatchRecord.jsx';
+import { BackLink, CAT_AR, DAYS_AR, ErrorBox, IconBtn, Loading, Modal, Progress, ATT_AR, ATT_CLS, STATUS_AR, fmtDT, fmtTime, go, gradeLabel, qs, todayStr, useFlash, useLoad, useSettings } from '../ui.jsx';
 
 const LVL_AR = { assign: 'تعيين', promotion: 'ترقية', demotion: 'خفض' };
 
 function describe(r, scale) {
-  if (r.kind === 'attendance') return { title: r.status === 'present' ? 'حاضر' : 'غائب', sub: r.note, cls: r.status === 'present' ? 'ok' : 'bad' };
+  if (r.kind === 'attendance') return { title: ATT_AR[r.status] || r.status, sub: r.note, cls: ATT_CLS[r.status] };
   if (r.kind === 'note') return { title: `ملاحظة · ${CAT_AR[r.category]}`, sub: r.text };
   const what = r.type === 'hifz' ? 'حفظ' : 'مراجعة';
   const where = r.mode === 'surah' ? `${r.surahName} (${r.fromAyah}–${r.toAyah})` : `صفحة ${r.fromPage}–${r.toPage}`;
@@ -16,12 +17,12 @@ function describe(r, scale) {
 }
 
 // نموذج واحد للإضافة والتعديل: attendance | hifz | review | note (لتسجيل/مستوى محدد)
-function RecordForm({ enrollmentId, kind, rec, onDone, onClose, scale, levelSurahs = [] }) {
+function RecordForm({ enrollmentId, kind, rec, onDone, onClose, scale, levelSurahs = [], presetSurah = null }) {
   const editing = !!rec;
   const [f, setF] = useState(() => ({
     date: rec?.date || todayStr(),
     status: rec?.status || 'present', note: rec?.note || '',
-    mode: rec?.mode || 'surah', surah: String(rec?.surah || levelSurahs[0] || 1), fromAyah: rec?.fromAyah ?? '', toAyah: rec?.toAyah ?? '',
+    mode: rec?.mode || 'surah', scope: !rec && presetSurah ? 'full' : 'range', surah: String(rec?.surah || presetSurah || levelSurahs[0] || 1), fromAyah: rec?.fromAyah ?? '', toAyah: rec?.toAyah ?? '',
     fromPage: rec?.fromPage ?? '', toPage: rec?.toPage ?? '', grade: rec?.grade || '',
     category: rec?.category || 'general', text: rec?.text || '',
     visible: rec ? !!rec.visibleToStudent : true, // مرئية للطالب (الافتراضي: نعم لغير السلوك والانضباط)
@@ -33,12 +34,20 @@ function RecordForm({ enrollmentId, kind, rec, onDone, onClose, scale, levelSura
   const title = { attendance: 'الحضور', hifz: 'الحفظ', review: 'المراجعة', note: 'ملاحظة' }[kind];
 
   async function submit(e) {
-    e.preventDefault(); setBusy(true); setErr('');
+    e.preventDefault(); if (busy) return; setBusy(true); setErr('');
     try {
       let path, body;
       if (kind === 'attendance') { path = 'attendance'; body = { date: f.date, status: f.status, note: f.note }; }
       else if (kind === 'note') { path = 'notes'; body = { date: f.date, category: f.category, text: f.text, visibleToStudent: f.visible }; }
-      else { path = 'recitations'; body = { date: f.date, type: kind, mode: f.mode, surah: f.surah, fromAyah: f.fromAyah, toAyah: f.toAyah, fromPage: f.fromPage, toPage: f.toPage, grade: f.grade }; }
+      else {
+        path = 'recitations';
+        const full = f.mode === 'surah' && f.scope === 'full'; // السورة كاملة: النطاق من أول آية إلى آخرها تلقائياً
+        body = { date: f.date, type: kind, mode: f.mode, surah: f.surah, fromAyah: full ? 1 : f.fromAyah, toAyah: full ? surah.ayahs : f.toAyah, fromPage: f.fromPage, toPage: f.toPage, grade: f.grade };
+        if (f.mode === 'surah' && !full) {
+          const a = Number(f.fromAyah), b = Number(f.toAyah);
+          if (!Number.isInteger(a) || !Number.isInteger(b) || a < 1 || b < a || b > surah.ayahs) { setBusy(false); setErr(`الآيات يجب أن تكون بين 1 و${surah.ayahs} (من ≤ إلى)`); return; }
+        }
+      }
       if (editing) await api(`/records/${rec.kind}/${rec.id}`, { method: 'PATCH', body });
       else await api(`/enrollments/${enrollmentId}/${path}`, { method: 'POST', body });
       onDone(editing ? 'تم حفظ التعديل' : 'تم الحفظ');
@@ -46,29 +55,35 @@ function RecordForm({ enrollmentId, kind, rec, onDone, onClose, scale, levelSura
   }
 
   return (
-    <Modal title={`${editing ? 'تعديل' : 'إضافة'} ${title}`} onClose={onClose}>
+    <Modal title={`${editing ? 'تعديل' : 'إضافة'} ${title}${presetSurah ? ' — سورة ' + SURAHS[presetSurah - 1].name : ''}`} onClose={onClose}>
       <form onSubmit={submit}>
         {!editing && <label>التاريخ<input type="date" max={todayStr()} value={f.date} onChange={set('date')} /></label>}
         {kind === 'attendance' && (<>
           <div className="row">
             <button type="button" className={'btn seg' + (f.status === 'present' ? ' on' : '')} onClick={() => setF({ ...f, status: 'present' })}>حاضر</button>
             <button type="button" className={'btn seg bad' + (f.status === 'absent' ? ' on' : '')} onClick={() => setF({ ...f, status: 'absent' })}>غائب</button>
+            <button type="button" className={'btn seg warn' + (f.status === 'excused' ? ' on' : '')} onClick={() => setF({ ...f, status: 'excused' })}>غائب بعذر</button>
           </div>
-          <label>ملاحظة (اختياري)<input value={f.note} onChange={set('note')} maxLength={300} /></label>
+          <label>{f.status === 'excused' ? 'سبب العذر (اختياري)' : 'ملاحظة (اختياري)'}<input value={f.note} onChange={set('note')} maxLength={300} placeholder={f.status === 'excused' ? 'مثال: مرض، سفر، اختبار مدرسي' : ''} /></label>
         </>)}
         {(kind === 'hifz' || kind === 'review') && (<>
           <div className="row">
-            <button type="button" className={'btn seg' + (f.mode === 'surah' ? ' on' : '')} onClick={() => setF({ ...f, mode: 'surah' })}>بالسورة والآيات</button>
+            <button type="button" className={'btn seg' + (f.mode === 'surah' && f.scope === 'full' ? ' on' : '')} onClick={() => setF({ ...f, mode: 'surah', scope: 'full' })}>السورة كاملة</button>
+            <button type="button" className={'btn seg' + (f.mode === 'surah' && f.scope === 'range' ? ' on' : '')} onClick={() => setF({ ...f, mode: 'surah', scope: 'range' })}>آيات محددة</button>
             <button type="button" className={'btn seg' + (f.mode === 'page' ? ' on' : '')} onClick={() => setF({ ...f, mode: 'page' })}>بالصفحات</button>
           </div>
           {f.mode === 'surah' ? (<>
-            <label>السورة<select value={f.surah} onChange={set('surah')}>
-              {levelSurahs.length > 0 && <optgroup label="سور هذا المستوى">{levelSurahs.map((n) => <option key={'l' + n} value={n}>{n}. {SURAHS[n - 1].name} ({SURAHS[n - 1].ayahs} آية)</option>)}</optgroup>}
-              <optgroup label={levelSurahs.length ? 'باقي السور' : 'السور'}>{SURAHS.filter((s) => !levelSurahs.includes(s.number)).map((s) => <option key={s.number} value={s.number}>{s.number}. {s.name} ({s.ayahs} آية)</option>)}</optgroup></select></label>
-            <div className="row">
-              <label className="grow">من آية<input type="number" inputMode="numeric" min="1" max={surah.ayahs} value={f.fromAyah} onChange={set('fromAyah')} required /></label>
-              <label className="grow">إلى آية<input type="number" inputMode="numeric" min="1" max={surah.ayahs} value={f.toAyah} onChange={set('toAyah')} required /></label>
-            </div>
+            {presetSurah ? <div className="small" style={{ marginBottom: 10 }}>سورة <b>{surah.name}</b> · {surah.ayahs} آية</div> : (
+              <label>السورة<select value={f.surah} onChange={set('surah')}>
+                {levelSurahs.length > 0 && <optgroup label="سور هذا المستوى">{levelSurahs.map((n) => <option key={'l' + n} value={n}>{n}. {SURAHS[n - 1].name} ({SURAHS[n - 1].ayahs} آية)</option>)}</optgroup>}
+                <optgroup label={levelSurahs.length ? 'باقي السور' : 'السور'}>{SURAHS.filter((s) => !levelSurahs.includes(s.number)).map((s) => <option key={s.number} value={s.number}>{s.number}. {s.name} ({s.ayahs} آية)</option>)}</optgroup></select></label>
+            )}
+            {f.scope === 'full' ? <p className="small muted" style={{ marginTop: 0 }}>ستُسجَّل الآيات 1–{surah.ayahs} تلقائياً.</p> : (
+              <div className="row">
+                <label className="grow">من آية<input type="number" inputMode="numeric" min="1" max={surah.ayahs} value={f.fromAyah} onChange={set('fromAyah')} required /></label>
+                <label className="grow">إلى آية<input type="number" inputMode="numeric" min="1" max={surah.ayahs} value={f.toAyah} onChange={set('toAyah')} required /></label>
+              </div>
+            )}
           </>) : (
             <div className="row">
               <label className="grow">من صفحة<input type="number" inputMode="numeric" min="1" max="604" value={f.fromPage} onChange={set('fromPage')} required /></label>
@@ -91,8 +106,9 @@ function RecordForm({ enrollmentId, kind, rec, onDone, onClose, scale, levelSura
 }
 
 export default function StudentDetail({ id, me, online }) {
-  const { gradeScale: scale } = useSettings();
+  const { gradeScale: scale, teachersCanEditStudents } = useSettings();
   const isManager = me.role !== 'teacher';
+  const canEditStudent = isManager || !!teachersCanEditStudents; // المعلم يعدّل بيانات طلابه إن سمح مدير النظام
   const [eid, setEid] = useState(null);
   const [type, setType] = useState('all');
   const [range, setRange] = useState({ from: '', to: '' });
@@ -108,7 +124,7 @@ export default function StudentDetail({ id, me, online }) {
   const recs = useLoad(() => (curId ? api(`/students/${id}/records` + qs({ enrollmentId: curId, type, from: range.from, to: range.to })) : Promise.resolve({ items: [] })), [id, curId, type, range.from, range.to]);
 
   useEffect(() => {
-    if (isManager) api('/users?role=teacher&status=active&limit=50').then((d) => setTeachers(d.items)).catch(() => {});
+    if (isManager) api('/users?role=teacher&status=active&limit=200').then((d) => setTeachers(d.items)).catch(() => {});
     api('/levels').then((d) => setLevels(d.items)).catch(() => {});
   }, [isManager]);
 
@@ -138,7 +154,7 @@ export default function StudentDetail({ id, me, online }) {
         {info.data.groups.length > 0 && <div className="metas" style={{ marginTop: 6 }}>{info.data.groups.map((g) => <a key={g.id} className="goal" href={'#/groups/' + g.id}>{g.name}</a>)}</div>}
         <div className="irow" style={{ marginTop: 10 }}>
           {s.whatsapp && <IconBtn icon="chat" tone="wa" label="واتساب" href={s.whatsapp} />}
-          {isManager && <IconBtn icon="user" label="تعديل بيانات الطالب" disabled={!online} onClick={() => setModal({ editS: true, f: { name: s.name, age: s.age ?? '', phone: s.phone, enrolledAt: s.enrolledAt, notes: s.notes } })} />}
+          {canEditStudent && <IconBtn icon="user" label="تعديل بيانات الطالب" disabled={!online} onClick={() => setModal({ editS: true, f: { name: s.name, age: s.age ?? '', phone: s.phone, enrolledAt: s.enrolledAt, notes: s.notes } })} />}
           <IconBtn icon="file" tone="gold" label="تقرير الطالب" onClick={() => go('/reports' + qs({ type: 'student', id: s.id }))} />
           {isManager && <IconBtn icon="plus" tone="ok" caption="مستوى" label="تسجيل الطالب في مستوى إضافي" disabled={!online} onClick={() => setModal({ addE: true, f: { levelId: '', teacherId: '', position: '' } })} />}
           {isManager && <IconBtn icon="power" tone="danger" label="حالة الطالب (إيقاف/أرشفة)" disabled={!online} onClick={() => setModal({ sstatus: true, value: s.status })} />}
@@ -180,24 +196,36 @@ export default function StudentDetail({ id, me, online }) {
           {cur.progress && (
             <div className="card">
               <h3>تقدّم الطالب في {lvName(cur)}</h3>
-              <Progress pct={cur.progress.pct} label={`${cur.progress.pct}% — حفظ ${cur.progress.memorized} من ${cur.progress.total} آية من سور المستوى`} />
-              <div className="chips" style={{ marginTop: 10, marginBottom: 0 }}>
-                {cur.progress.surahs.map((x) => (
-                  <button key={x.surah} className={'chip' + (x.memorized === x.total ? ' on' : '')} title={`${x.memorized} من ${x.total} — اضغط لعرض السورة`} onClick={() => setModal({ reader: { surah: x.surah, ranges: x.ranges || [], legend: 'الآيات المحفوظة' } })}>{x.name}{x.memorized === x.total ? ' ✓' : x.memorized ? ` ${Math.round((x.memorized / x.total) * 100)}%` : ''}</button>
-                ))}
+              <Progress pct={cur.progress.pct} label={`الحفظ ${cur.progress.pct}% — ${cur.progress.memorized} من ${cur.progress.total} آية`} />
+              <Progress tone="rev" pct={cur.progress.review?.pct} label={`المراجعة ${cur.progress.review?.pct ?? 0}% — ${cur.progress.review?.reviewed ?? 0} من ${cur.progress.total} آية`} />
+              <div style={{ marginTop: 10 }}>
+                {cur.progress.surahs.map((x) => {
+                  const hp = Math.round((x.memorized / x.total) * 100), rp = Math.round(((x.reviewed || 0) / x.total) * 100);
+                  return (
+                    <button key={x.surah} type="button" className="sbtn" title="تفاصيل السورة" onClick={() => setModal({ surahInfo: x })}>
+                      <span className="row between"><b>{x.name}</b><small className="muted">{x.total} آية</small></span>
+                      <span className="two">
+                        <span><small className="muted">حفظ {hp}%{x.memorized === x.total ? ' ✓' : ''}</small><Progress thin pct={hp} /></span>
+                        <span><small className="muted">مراجعة {rp}%{(x.reviewed || 0) === x.total ? ' ✓' : ''}</small><Progress thin tone="rev" pct={rp} /></span>
+                      </span>
+                    </button>
+                  );
+                })}
               </div>
-              <p className="small muted" style={{ marginBottom: 0 }}>يُحسب من سجلات «الحفظ» بالسورة والآيات في هذا المستوى (التقييم «يحتاج إلى إعادة» لا يُحتسب، والتسميع بالصفحات غير داخل في الحساب).</p>
+              <p className="small muted" style={{ marginBottom: 0 }}>اضغط على أي سورة لعرض تفاصيلها وتسجيل الحفظ أو المراجعة. الحساب بالآيات الفريدة المسجَّلة بالسورة والآيات في سور المستوى؛ تكرار الآية لا يزيد النسبة، والحفظ بتقييم «يحتاج إلى إعادة» لا يُحتسب، والتسميع بالصفحات خارج الحساب.</p>
             </div>
           )}
 
           {active && (
             <div className="card">
               <h3>تسجيل اليوم — {lvName(cur)}</h3>
-              <div className="muted small">الحضور: {todayAtt ? (todayAtt.status === 'present' ? 'حاضر' : 'غائب') : 'لم يُسجَّل'}</div>
+              <div className="muted small">الحضور: {todayAtt ? (ATT_AR[todayAtt.status] || todayAtt.status) : 'لم يُسجَّل'}</div>
               <div className="irow">
                 <IconBtn icon="check" tone="ok" caption="الحضور" label="تسجيل الحضور" disabled={!online} onClick={() => setModal({ kind: 'attendance', rec: todayAtt?.editable ? todayAtt : null })} />
                 <IconBtn icon="book" tone="ok" caption="حفظ" label="إضافة حفظ" disabled={!online} onClick={() => setModal({ kind: 'hifz' })} />
                 <IconBtn icon="restore" tone="ok" caption="مراجعة" label="إضافة مراجعة" disabled={!online} onClick={() => setModal({ kind: 'review' })} />
+                {levelSurahs.length > 0 && <IconBtn icon="layers" tone="ok" caption="حفظ جماعي" label="تسجيل حفظ عدة سور" disabled={!online} onClick={() => setModal({ batch: 'hifz' })} />}
+                {levelSurahs.length > 0 && <IconBtn icon="layers" tone="ok" caption="مراجعة جماعية" label="تسجيل مراجعة عدة سور" disabled={!online} onClick={() => setModal({ batch: 'review' })} />}
                 <IconBtn icon="file" tone="gold" caption="ملاحظة" label="إضافة ملاحظة" disabled={!online} onClick={() => setModal({ kind: 'note' })} />
               </div>
             </div>
@@ -244,16 +272,37 @@ export default function StudentDetail({ id, me, online }) {
       </div>
 
       {modal?.reader && <QuranReader {...modal.reader} onClose={() => setModal(null)} />}
-      {modal?.kind && cur && <RecordForm enrollmentId={cur.id} kind={modal.kind} rec={modal.rec} scale={scale} levelSurahs={levelSurahs} onDone={done} onClose={() => setModal(null)} />}
+      {modal?.kind && cur && <RecordForm enrollmentId={cur.id} kind={modal.kind} rec={modal.rec} presetSurah={modal.presetSurah} scale={scale} levelSurahs={levelSurahs} onDone={done} onClose={() => setModal(null)} />}
+      {modal?.batch && cur && <BatchRecordForm enrollmentId={cur.id} kind={modal.batch} surahs={levelSurahs} scale={scale} progress={cur.progress} onDone={done} onClose={() => setModal(null)} />}
+      {modal?.surahInfo && cur && (() => {
+        const x = modal.surahInfo, hp = Math.round((x.memorized / x.total) * 100), rp = Math.round(((x.reviewed || 0) / x.total) * 100);
+        return (
+          <Modal title={`سورة ${x.name}`} onClose={() => setModal(null)}>
+            <p className="small muted" style={{ marginTop: 0 }}>{x.total} آية</p>
+            <Progress pct={hp} label={`الحفظ ${hp}% — ${x.memorized} من ${x.total} آية`} />
+            <Progress tone="rev" pct={rp} label={`المراجعة ${rp}% — ${x.reviewed || 0} من ${x.total} آية`} />
+            {active && (
+              <div className="irow" style={{ marginTop: 12 }}>
+                <IconBtn icon="book" tone="ok" caption="تسجيل حفظ" label={`تسجيل حفظ سورة ${x.name}`} disabled={!online} onClick={() => setModal({ kind: 'hifz', presetSurah: x.surah })} />
+                <IconBtn icon="restore" tone="ok" caption="تسجيل مراجعة" label={`تسجيل مراجعة سورة ${x.name}`} disabled={!online} onClick={() => setModal({ kind: 'review', presetSurah: x.surah })} />
+              </div>
+            )}
+            <div className="irow" style={{ marginTop: 10 }}>
+              <button type="button" className="chip" onClick={() => setModal({ reader: { surah: x.surah, ranges: x.ranges || [], legend: 'الآيات المحفوظة' } })}>عرض السورة (المحفوظ)</button>
+              <button type="button" className="chip" onClick={() => setModal({ reader: { surah: x.surah, ranges: x.reviewRanges || [], legend: 'الآيات المراجَعة' } })}>عرض السورة (المراجَع)</button>
+            </div>
+          </Modal>
+        );
+      })()}
 
       {modal?.editS && (
         <Modal title="تعديل بيانات الطالب" onClose={() => setModal(null)}>
-          <form onSubmit={(e) => { e.preventDefault(); call(() => api('/students/' + id, { method: 'PATCH', body: modal.f }), 'تم حفظ التعديل'); }}>
+          <form onSubmit={(e) => { e.preventDefault(); call(() => api('/students/' + id, { method: 'PATCH', body: isManager ? modal.f : { ...modal.f, notes: undefined } }), 'تم حفظ التعديل'); }}>
             <label>الاسم<input value={modal.f.name} onChange={(e) => setModal({ ...modal, f: { ...modal.f, name: e.target.value } })} required /></label>
             <label>العمر<input type="number" min="3" max="100" value={modal.f.age} onChange={(e) => setModal({ ...modal, f: { ...modal.f, age: e.target.value } })} /></label>
             <label>الهاتف<input dir="ltr" inputMode="tel" placeholder="05XXXXXXXX أو 7XXXXXXXX أو +20…" value={modal.f.phone} onChange={(e) => setModal({ ...modal, f: { ...modal.f, phone: e.target.value } })} /><small className="small muted">سعودي: 05XXXXXXXX · يمني: 7XXXXXXXX · غيرهما: مع مفتاح الدولة مثل +20…</small></label>
             <label>تاريخ الالتحاق<input type="date" value={modal.f.enrolledAt} onChange={(e) => setModal({ ...modal, f: { ...modal.f, enrolledAt: e.target.value } })} /></label>
-            <label>ملاحظات عامة<input value={modal.f.notes} onChange={(e) => setModal({ ...modal, f: { ...modal.f, notes: e.target.value } })} /></label>
+            {isManager && <label>ملاحظات عامة<input value={modal.f.notes} onChange={(e) => setModal({ ...modal, f: { ...modal.f, notes: e.target.value } })} /></label>}
             <button className="btn block" disabled={busy}>حفظ</button>
           </form>
         </Modal>

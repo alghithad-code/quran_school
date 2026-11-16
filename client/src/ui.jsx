@@ -165,10 +165,10 @@ export const GOAL_AR = { full_review: 'مراجعة كاملة', surah_review: '
 export function goalText(g) { return g.goalText ? `${GOAL_AR[g.goalType]}: ${g.goalText}` : GOAL_AR[g.goalType]; }
 
 // شريط تقدّم: pct من 0 إلى 100
-export function Progress({ pct, label, thin = false }) {
+export function Progress({ pct, label, thin = false, tone = '' }) {
   const v = Math.max(0, Math.min(100, pct || 0));
   return (
-    <div className={'prog' + (thin ? ' thin' : '')}>
+    <div className={'prog' + (thin ? ' thin' : '') + (tone ? ' ' + tone : '')}>
       <div className="pbar" role="progressbar" aria-valuenow={v} aria-valuemin="0" aria-valuemax="100"><i style={{ width: v + '%' }} /></div>
       {label && <small className="muted">{label}</small>}
     </div>
@@ -189,7 +189,9 @@ export function PasswordInput(props) {
 export const linkTo = (l) => (l ? '#' + l : '#/');
 
 export const todayStr = () => new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Riyadh', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date());
-export const FILTER_AR = { present_today: 'حاضرون اليوم', absent_today: 'غائبون اليوم', no_eval_today: 'بلا تقييم اليوم', frequent_absent: 'كثيرو الغياب', no_active: 'بلا تسجيل نشط' };
+export const ATT_AR = { present: 'حاضر', absent: 'غائب', excused: 'غائب بعذر' };
+export const ATT_CLS = { present: 'ok', absent: 'bad', excused: 'warn' };
+export const FILTER_AR = { present_today: 'حاضرون اليوم', absent_today: 'غائبون اليوم', excused_today: 'غائبون بعذر اليوم', no_eval_today: 'بلا تقييم اليوم', frequent_absent: 'كثيرو الغياب', no_active: 'بلا تسجيل نشط' };
 
 // ---------- أيقونات رسومية (خطية) وشعار ----------
 const ICONS = {

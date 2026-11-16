@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { api } from '../api.js';
 import { QuranReader } from '../quranReader.jsx';
-import { Empty, ErrorBox, Loading, fmtDT, linkTo, qs, useLoad } from '../ui.jsx';
+import { Empty, ErrorBox, Loading, fmtDT, linkTo, qs, useLoad, ATT_AR, ATT_CLS } from '../ui.jsx';
 
 // التاريخ الهجري (أم القرى) والميلادي بتوقيت الرياض
 const HIJRI = new Intl.DateTimeFormat('ar-SA-u-ca-islamic-umalqura-nu-latn', { timeZone: 'Asia/Riyadh', weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
@@ -45,6 +45,7 @@ export default function Home({ user }) {
             <Card n={c.teachersSuspended} label="معلمون موقوفون" to={'/teachers' + qs({ status: 'suspended' })} />
             <Card n={c.presentToday} label="حاضرون اليوم" to={'/students' + qs({ filter: 'present_today' })} />
             <Card n={c.absentToday} label="غائبون اليوم" to={'/students' + qs({ filter: 'absent_today' })} />
+            <Card n={c.excusedToday} label="غائبون بعذر اليوم" to={'/students' + qs({ filter: 'excused_today' })} />
             <Card n={`${c.attendanceRate}%`} label="نسبة الحضور اليوم" to={'/students' + qs({ filter: 'present_today' })} />
             <Card n={c.avgHifz ?? '—'} label={`متوسط الحفظ (${data.avgPeriodDays} يوماً)`} to="/reports?type=school" />
             <Card n={c.avgReview ?? '—'} label={`متوسط المراجعة (${data.avgPeriodDays} يوماً)`} to="/reports?type=school" />
@@ -77,6 +78,7 @@ export default function Home({ user }) {
             <Card n={c.students} label="طلابي" to="/students" />
             <Card n={c.presentToday} label="حاضرون اليوم" to={'/students' + qs({ filter: 'present_today' })} />
             <Card n={c.absentToday} label="غائبون اليوم" to={'/students' + qs({ filter: 'absent_today' })} />
+            <Card n={c.excusedToday} label="غائبون بعذر اليوم" to={'/students' + qs({ filter: 'excused_today' })} />
             <Card n={c.noEvalToday} label="بلا تقييم اليوم" to={'/students' + qs({ filter: 'no_eval_today' })} warn />
             <Card n={c.pendingPromotions} label="طلبات ترقية معلقة" to="/promotions" />
           </div>
@@ -86,7 +88,7 @@ export default function Home({ user }) {
             {data.today.map((s) => (
               <a key={s.id} className="line" href={`#/students/${s.studentId}`}>
                 <span>{s.name}<small className="muted"> · {s.level || 'بلا مستوى'} · {s.arrivalTime || 'بلا وقت'}{s.startTime ? ` · تسميع ${s.startTime}` : ''}</small></span>
-                {s.status && <span className={'tag ' + (s.status === 'present' ? 'ok' : 'bad')}>{s.status === 'present' ? 'حاضر' : 'غائب'}</span>}
+                {s.status && <span className={'tag ' + ATT_CLS[s.status]}>{ATT_AR[s.status]}</span>}
               </a>
             ))}
           </div>

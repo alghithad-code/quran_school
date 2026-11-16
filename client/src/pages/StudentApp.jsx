@@ -5,15 +5,17 @@ import More from './More.jsx';
 import Mushaf from './Mushaf.jsx';
 import StudentPortal from './StudentPortal.jsx';
 
-const TITLES = { '': 'صفحتي', mushaf: 'المصحف الشريف', more: 'حسابي وكلمة المرور' };
+const TITLES = { '': 'صفحتي', mushaf: 'المصحف الشريف', more: 'تعديل بيانات الحساب' };
 
 // الكلمة المؤقتة التي سلّمها المعلم: لا يدخل الطالب صفحته قبل أن يختار كلمته الخاصة
 function ForcePassword({ user, online, onDone, onLogout }) {
-  const [f, setF] = useState({ currentPassword: '', newPassword: '' });
+  const [f, setF] = useState({ currentPassword: '', newPassword: '', confirmPassword: '' });
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState('');
   async function submit(e) {
-    e.preventDefault(); setBusy(true); setErr('');
+    e.preventDefault(); setErr('');
+    if (f.newPassword !== f.confirmPassword) return setErr('تأكيد كلمة المرور لا يطابق الجديدة');
+    setBusy(true);
     try { await api('/auth/change-password', { method: 'POST', body: f }); onDone((await api('/auth/me')).user); } catch (er) { setErr(er.message); } finally { setBusy(false); }
   }
   return (
@@ -25,6 +27,7 @@ function ForcePassword({ user, online, onDone, onLogout }) {
         {!online && <div className="alert">لا يوجد اتصال بالإنترنت</div>}
         <label>كلمة المرور المؤقتة<PasswordInput autoComplete="current-password" value={f.currentPassword} onChange={(e) => setF({ ...f, currentPassword: e.target.value })} required /></label>
         <label>كلمتك الجديدة (6 أحرف على الأقل، حروف إنجليزية وأرقام)<PasswordInput autoComplete="new-password" minLength={6} value={f.newPassword} onChange={(e) => setF({ ...f, newPassword: e.target.value })} required /></label>
+        <label>تأكيد كلمتك الجديدة<PasswordInput autoComplete="new-password" minLength={6} value={f.confirmPassword} onChange={(e) => setF({ ...f, confirmPassword: e.target.value })} required /></label>
         {err && <div className="alert">{err}</div>}
         <button className="btn block" disabled={busy || !online}>{busy ? 'جارٍ الحفظ…' : 'حفظ والدخول'}</button>
       </form>
@@ -43,7 +46,7 @@ export default function StudentApp({ user, setUser, online, path, onLogout }) {
   const key = path.split('/').filter(Boolean)[0] || '';
   const k = key in TITLES ? key : '';
   const page = k === 'mushaf' ? <Mushaf authed online={online} /> : k === 'more' ? <More online={online} onLogout={onLogout} /> : <StudentPortal />;
-  const items = [['', 'home', 'صفحتي'], ['mushaf', 'bookopen', 'المصحف الشريف'], ['more', 'lock', 'حسابي وكلمة المرور']];
+  const items = [['', 'home', 'صفحتي'], ['mushaf', 'bookopen', 'المصحف الشريف'], ['more', 'lock', 'تعديل بيانات الحساب']];
 
   return (
     <div className="shell">

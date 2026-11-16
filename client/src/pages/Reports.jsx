@@ -46,7 +46,7 @@ export default function Reports({ me, query }) {
   const [text, setText] = useState('');
 
   useEffect(() => {
-    if (isManager) api('/users?role=teacher&limit=50').then((d) => setTeachers(d.items)).catch(() => {});
+    if (isManager) api('/users?role=teacher&limit=200').then((d) => setTeachers(d.items)).catch(() => {});
     api('/levels').then((d) => setLevels(d.items)).catch(() => {});
   }, [isManager]);
   useEffect(() => {

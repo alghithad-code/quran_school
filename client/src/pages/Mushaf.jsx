@@ -1,13 +1,13 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { api } from '../api.js';
 import { Icon, Loading, Modal } from '../ui.jsx';
+import { audioUrl, cachedAyahs, deleteAllAudio, deleteSurah, downloadSurah, hasOfflineText, loadAllText, loadMeta, offlineSearch, offlineSurah, resolveAudio } from '../offline.js';
 
 // المصحف الشريف: مكوّن واحد يُستخدم للزائر (من شاشة الدخول) وللمستخدم المسجل (من القائمة الجانبية).
 // الزائر: يُحفظ موضعه وقارئه على جهازه فقط. المسجل: يُحفظ في حسابه ويُسترجع من أي جهاز، مع نسخة محلية تُزامَن عند عودة الاتصال.
 
 const LS = 'mushaf.v1';
 const ar = (n) => Number(n).toLocaleString('ar-EG');
-const pad = (n) => String(n).padStart(3, '0');
 const key = (s, a) => s * 1000 + a;
 const surahCache = new Map();
 let metaCache = null;
@@ -15,7 +15,7 @@ let metaCache = null;
 const readLocal = () => { try { return JSON.parse(localStorage.getItem(LS) || 'null') || {}; } catch { return {}; } };
 const writeLocal = (v) => { try { localStorage.setItem(LS, JSON.stringify(v)); } catch { /* ممتلئ أو ممنوع */ } };
 
-const urlFor = (reader, s, a) => reader.urlTemplate.replace(/\{s\}/g, pad(s)).replace(/\{a\}/g, pad(a));
+const urlFor = audioUrl;
 const juzOf = (juz, s, a) => { let n = 1; for (let i = 0; i < juz.length; i += 1) { if (key(juz[i][0], juz[i][1]) <= key(s, a)) n = i + 1; else break; } return n; };
 const pageOf = (pages, s, a) => {
   if (!pages) return null;
@@ -64,6 +64,10 @@ export default function Mushaf({ authed = false, online = true }) {
   const [busy, setBusy] = useState(false);
   const [goTo, setGoTo] = useState('');
   const [ctl, setCtl] = useState(false); // لوحة التحكم (نافذة سفلية)
+  const [txtReady, setTxtReady] = useState(false); // نص القرآن محفوظ للقراءة دون إنترنت
+  const [dl, setDl] = useState(null); // تحميل التلاوة الجاري: { done, total }
+  const [dlHave, setDlHave] = useState(0); // عدد آيات السورة الحالية المحمّلة للقارئ الحالي
+  const [dlMsg, setDlMsg] = useState('');
   const [topH, setTopH] = useState(64); // ارتفاع شريط الصفحة العلوي لتثبيت شريط المصحف تحته
 
   // في وضع المصحف يختفي الشريط السفلي للتطبيق ويستقر شريط التشغيل في أسفل الشاشة (القائمة الجانبية تبقى من زر القائمة)
@@ -78,6 +82,8 @@ export default function Mushaf({ authed = false, online = true }) {
 
   const readers = meta?.readers || [];
   const reader = readers.find((r) => r.id === readerId) || readers[0] || null;
+  const dlAbort = useRef(null);
+  const blobSrc = useRef(null);
   const live = useRef({});
   live.current = { reader, speed, vol };
   const ays = data?.ayahs.length || 0;
@@ -86,14 +92,29 @@ export default function Mushaf({ authed = false, online = true }) {
   // ---------- البيانات ----------
   useEffect(() => {
     if (metaCache) return;
-    api('/public/mushaf/meta').then((m) => { metaCache = m; setMeta(m); }).catch((e) => setErr(e.message));
+    loadMeta().then((m) => { metaCache = m; setMeta(m); }).catch((e) => setErr(e.message));
   }, []);
+
+  // تجهيز النص للقراءة دون إنترنت: مرة واحدة في الخلفية بعد أول فتح
+  useEffect(() => {
+    let dead = false;
+    hasOfflineText().then((ok) => {
+      if (dead) return;
+      if (ok) { setTxtReady(true); return; }
+      if (online) loadAllText().then(() => { if (!dead) setTxtReady(true); }).catch(() => {});
+    });
+    return () => { dead = true; };
+  }, [online]);
 
   useEffect(() => {
     setShown(new Set()); setSel(null);
     if (surahCache.has(surah)) { setData(surahCache.get(surah)); return; }
     setData(null);
-    api('/public/mushaf/surah/' + surah).then((r) => { surahCache.set(surah, r); setData(r); }).catch((e) => setErr(e.message));
+    api('/public/mushaf/surah/' + surah).then((r) => { surahCache.set(surah, r); setData(r); })
+      .catch(async (e) => {
+        const r = await offlineSurah(surah, metaCache?.surahs).catch(() => null); // دون إنترنت: من النسخة المحفوظة
+        if (r) { surahCache.set(surah, r); setData(r); } else setErr(e.message);
+      });
   }, [surah]);
 
   useEffect(() => { if (ays) { setSegFrom(1); setSegTo(ays); } }, [ays, surah]);
@@ -199,24 +220,31 @@ export default function Mushaf({ authed = false, online = true }) {
   function finish() { plan.current = null; setNow(null); setPlaying(false); }
 
   function playStep() {
-    const p = plan.current, L = live.current, a = audio.current;
-    if (!p || !L.reader || !a) return;
+    const p = plan.current, a = audio.current, L0 = live.current;
+    if (!p || !L0.reader || !a) return;
     if (p.i >= totalSteps(p)) { finish(); return; }
     const ay = ayahAt(p, p.i);
-    const url = urlFor(L.reader, p.surah, ay);
+    const url = urlFor(L0.reader, p.surah, ay);
+    const idx = p.i;
     setNow({ surah: p.surah, ayah: ay });
-    a.defaultPlaybackRate = L.speed;
-    a.volume = L.vol;
-    if (a.src === url) a.currentTime = 0; else a.src = url;
-    a.playbackRate = L.speed;
-    const pr = a.play();
-    if (pr && pr.catch) pr.catch((e) => { if (e.name !== 'AbortError') failPlay(); });
-    // تحميل مسبق للآية التالية لتقليل الفاصل
-    const nextI = p.i + 1;
-    if (nextI < totalSteps(p)) {
-      const nAy = ayahAt(p, nextI);
-      if (nAy !== ay) { const pre = new Audio(); pre.preload = 'auto'; pre.src = urlFor(L.reader, p.surah, nAy); }
-    }
+    resolveAudio(url).then(({ src, blob }) => {
+      if (plan.current !== p || p.i !== idx) { if (blob) URL.revokeObjectURL(src); return; } // تغيّرت الخطوة أثناء الانتظار
+      const L = live.current;
+      a.defaultPlaybackRate = L.speed;
+      a.volume = L.vol;
+      a.src = src;
+      if (blobSrc.current) URL.revokeObjectURL(blobSrc.current);
+      blobSrc.current = blob ? src : null;
+      a.playbackRate = L.speed;
+      const pr = a.play();
+      if (pr && pr.catch) pr.catch((e) => { if (e.name !== 'AbortError') failPlay(); });
+      // تحميل مسبق للآية التالية (من الشبكة فقط إن لم تكن محمّلة)
+      const nextI = p.i + 1;
+      if (!blob && nextI < totalSteps(p)) {
+        const nAy = ayahAt(p, nextI);
+        if (nAy !== ay) { const pre = new Audio(); pre.preload = 'auto'; pre.src = urlFor(L.reader, p.surah, nAy); }
+      }
+    });
   }
   function startPlan(p) { setErr(''); plan.current = { ...p, i: 0 }; playStep(); }
   const onEnded = () => { if (plan.current) { plan.current.i += 1; playStep(); } };
@@ -241,7 +269,26 @@ export default function Mushaf({ authed = false, online = true }) {
   const playWhole = () => { setCtl(false); startPlan({ surah, from: 1, to: ays, each: 1, seg: 1 }); };
 
   useEffect(() => { const a = audio.current; if (a) { a.volume = vol; a.playbackRate = speed; a.defaultPlaybackRate = speed; } }, [vol, speed]);
-  useEffect(() => () => { const a = audio.current; if (a) { a.pause(); a.removeAttribute('src'); } plan.current = null; }, []);
+  useEffect(() => () => { const a = audio.current; if (a) { a.pause(); a.removeAttribute('src'); } plan.current = null; if (blobSrc.current) URL.revokeObjectURL(blobSrc.current); dlAbort.current?.abort(); }, []);
+
+  // ---------- التحميل للاستماع دون إنترنت ----------
+  const refreshHave = useCallback(() => { if (reader && ays) cachedAyahs(reader, surah, ays).then(setDlHave); else setDlHave(0); }, [reader, surah, ays]);
+  useEffect(() => { refreshHave(); setDlMsg(''); }, [refreshHave]);
+
+  async function startDownload() {
+    if (dl || !reader || !ays) return;
+    const ctrl = new AbortController();
+    dlAbort.current = ctrl;
+    const sr = surah, rd = reader, n = ays;
+    setDl({ done: dlHave, total: n }); setDlMsg('');
+    try {
+      const r = await downloadSurah(rd, sr, n, (done, total) => setDl({ done, total }), ctrl.signal);
+      if (ctrl.signal.aborted) setDlMsg('أُلغي التحميل. ما حُمّل يبقى محفوظاً.');
+      else setDlMsg(r.failed ? `اكتمل التحميل ما عدا ${ar(r.failed)} آية تعذّر تحميلها، أعد المحاولة.` : 'اكتمل التحميل، يمكنك الاستماع لهذه السورة دون إنترنت.');
+    } catch (e) { setDlMsg(e.message); } finally { setDl(null); dlAbort.current = null; refreshHave(); }
+  }
+  async function removeDownload() { if (reader && ays) { await deleteSurah(reader, surah, ays); setDlMsg('حُذفت التلاوة المحمّلة لهذه السورة.'); refreshHave(); } }
+  async function removeAll() { await deleteAllAudio(); setDlMsg('حُذفت كل التلاوات المحمّلة من هذا الجهاز.'); refreshHave(); }
 
   // متابعة الآية الجارية: تظليل وتمرير
   useEffect(() => {
@@ -273,7 +320,13 @@ export default function Mushaf({ authed = false, online = true }) {
     e.preventDefault();
     if (q.trim().length < 2) { setErr('اكتب حرفين على الأقل للبحث'); return; }
     setBusy(true); setErr('');
-    try { setRes(await api('/public/mushaf/search?q=' + encodeURIComponent(q.trim()))); } catch (er) { setErr(er.message); } finally { setBusy(false); }
+    try {
+      let r = null;
+      if (online) { try { r = await api('/public/mushaf/search?q=' + encodeURIComponent(q.trim())); } catch { /* نبحث محلياً */ } }
+      if (!r) r = await offlineSearch(q.trim(), meta.surahs);
+      if (!r) throw new Error('البحث دون إنترنت يتطلب تجهيز النص أولاً (افتح المصحف مرة وأنت متصل)');
+      setRes(r);
+    } catch (er) { setErr(er.message); } finally { setBusy(false); }
   }
   function doGo(e) {
     e.preventDefault();
@@ -300,7 +353,7 @@ export default function Mushaf({ authed = false, online = true }) {
     </div>
   ), [data, hide, shown, sel, playingAyah, fontSize]);
 
-  if (!meta) return err ? <div className="alert">{err} <button className="btn ghost sm" onClick={() => { setErr(''); api('/public/mushaf/meta').then((m) => { metaCache = m; setMeta(m); }).catch((e) => setErr(e.message)); }}>إعادة المحاولة</button></div> : <Loading />;
+  if (!meta) return err ? <div className="alert">{err} <button className="btn ghost sm" onClick={() => { setErr(''); loadMeta().then((m) => { metaCache = m; setMeta(m); }).catch((e) => setErr(e.message)); }}>إعادة المحاولة</button></div> : <Loading />;
 
   const host = reader ? (() => { try { return new URL(reader.urlTemplate.replace(/\{[sa]\}/g, '001')).hostname; } catch { return ''; } })() : '';
 
@@ -348,6 +401,7 @@ export default function Mushaf({ authed = false, online = true }) {
         <div className="irow">
           <button type="button" className={'ibtn wide' + (panel === 'search' ? ' on' : '')} onClick={() => setPanel(panel === 'search' ? '' : 'search')}><Icon name="search" size={20} /><span>بحث</span></button>
           <button type="button" className={'ibtn wide' + (panel === 'tools' ? ' on' : '')} onClick={() => setPanel(panel === 'tools' ? '' : 'tools')}><Icon name="sliders" size={20} /><span>أدوات الحفظ</span></button>
+          <button type="button" className={'ibtn wide' + (panel === 'offline' ? ' on' : '')} onClick={() => setPanel(panel === 'offline' ? '' : 'offline')}><Icon name="download" size={20} /><span>بدون إنترنت</span></button>
           <button type="button" className="ibtn" aria-label="تصغير الخط" onClick={() => setFontSize((v) => Math.max(18, v - 2))}>أ−</button>
           <button type="button" className="ibtn" aria-label="تكبير الخط" onClick={() => setFontSize((v) => Math.min(48, v + 2))}>أ+</button>
         </div>
@@ -356,7 +410,7 @@ export default function Mushaf({ authed = false, online = true }) {
           <div className="mpanel">
             <form className="row" onSubmit={doSearch} style={{ marginBottom: 8 }}>
               <input className="grow" placeholder="اسم سورة أو نص آية" value={q} onChange={(e) => setQ(e.target.value)} />
-              <button className="btn" disabled={busy || !online}>{busy ? '…' : 'بحث'}</button>
+              <button className="btn" disabled={busy}>{busy ? '…' : 'بحث'}</button>
             </form>
             {res && !res.surahs.length && !res.ayahs.length && <p className="muted small">لا توجد نتائج</p>}
             {res?.surahs.length > 0 && <div className="chips">{res.surahs.map((s) => <button key={s.surah} className="chip" onClick={() => { go(s.surah, 1); setPanel(''); }}>سورة {s.name}</button>)}</div>}
@@ -367,6 +421,29 @@ export default function Mushaf({ authed = false, online = true }) {
               </button>
             ))}
             {res?.ayahs.length >= 30 && <p className="muted small">عُرضت أول 30 نتيجة، دقّق البحث لنتائج أقل.</p>}
+          </div>
+        )}
+
+        {panel === 'offline' && (
+          <div className="mpanel">
+            <p className="small" style={{ marginTop: 0 }}>{txtReady ? '✓ نص القرآن كاملاً محفوظ على جهازك، فتقرأ وتبحث دون إنترنت.' : online ? 'جارٍ تجهيز نص القرآن للقراءة دون إنترنت…' : 'لم يُجهَّز النص بعد. افتح المصحف مرة وأنت متصل بالإنترنت.'}</p>
+            <h3>الاستماع دون إنترنت</h3>
+            {reader ? (
+              <>
+                <p className="small muted">سورة {nameOf(surah)} · {reader.name}: {dlHave >= ays ? 'محمّلة كاملة' : `محمّل ${ar(dlHave)} من ${ar(ays)} آية`}</p>
+                {ays > 100 && !dl && dlHave < ays && <p className="small muted">هذه السورة طويلة وقد تستهلك مساحة كبيرة من جهازك، يُفضّل التحميل عبر واي فاي.</p>}
+                {dl && <><progress max={dl.total} value={dl.done} style={{ width: '100%' }} /><p className="small muted">{ar(dl.done)} من {ar(dl.total)} آية</p></>}
+                <div className="irow">
+                  {!dl && <button className="btn" disabled={!online || dlHave >= ays} onClick={startDownload}><Icon name="download" size={20} /> {dlHave ? 'إكمال التحميل' : 'تحميل السورة'}</button>}
+                  {dl && <button className="btn ghost" onClick={() => dlAbort.current?.abort()}>إلغاء</button>}
+                  {!dl && dlHave > 0 && <button className="btn ghost" onClick={removeDownload}><Icon name="trash" size={20} /> حذف تحميل السورة</button>}
+                </div>
+                {!online && !dl && dlHave < ays && <p className="small muted">يلزم اتصال بالإنترنت لتحميل التلاوة.</p>}
+                {dlMsg && <p className="small">{dlMsg}</p>}
+                <p className="small muted">التحميل خاص بالقارئ المختار؛ غيّر القارئ لتحميل تلاوته. يعمل التشغيل من النسخة المحمّلة تلقائياً.</p>
+                <button className="btn ghost sm" onClick={removeAll}>حذف كل التلاوات المحمّلة</button>
+              </>
+            ) : <p className="muted small">لا يوجد قراء مفعّلون.</p>}
           </div>
         )}
 

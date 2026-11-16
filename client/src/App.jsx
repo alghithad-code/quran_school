@@ -114,7 +114,7 @@ export default function App() {
     isManager && ['audit', 'shield', 'سجل العمليات'],
     user.role === 'admin' && ['readers', 'volume', 'قراء المصحف'],
     user.role === 'admin' && ['admin', 'sliders', 'الإعدادات والنسخ'],
-    ['more', 'lock', 'حسابي وكلمة المرور'],
+    ['more', 'lock', 'تعديل بيانات الحساب'],
   ].filter(Boolean);
 
   return (

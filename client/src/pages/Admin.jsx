@@ -21,7 +21,7 @@ export default function Admin({ online }) {
   }
   const saveSettings = (e) => {
     e.preventDefault();
-    run(() => api('/settings', { method: 'PATCH', body: { gradeScale: s.gradeScale, auditRetentionDays: s.auditRetentionDays, absenceThreshold: s.absenceThreshold, backupKeep: s.backupKeep, teachersCanAddStudents: !!s.teachersCanAddStudents } }), 'تم حفظ الإعدادات (يُطبَّق سلّم التقييم الجديد بعد إعادة فتح التطبيق)');
+    run(() => api('/settings', { method: 'PATCH', body: { gradeScale: s.gradeScale, auditRetentionDays: s.auditRetentionDays, absenceThreshold: s.absenceThreshold, teacherEditDays: s.teacherEditDays, teachersCanAddStudents: !!s.teachersCanAddStudents, teachersCanEditStudents: !!s.teachersCanEditStudents } }), 'تم حفظ الإعدادات (يُطبَّق سلّم التقييم الجديد بعد إعادة فتح التطبيق)');
   };
   const setG = (i, k, v) => setS((x) => ({ ...x, gradeScale: x.gradeScale.map((g, j) => (j === i ? { ...g, [k]: v } : g)) }));
 
@@ -59,10 +59,13 @@ export default function Admin({ online }) {
         <h3 style={{ marginTop: 16 }}>الصلاحيات</h3>
         <label className="check"><input type="checkbox" checked={!!s.teachersCanAddStudents} onChange={(e) => setS({ ...s, teachersCanAddStudents: e.target.checked })} />السماح للمعلمين بإضافة طلاب</label>
         <p className="small muted">عند التفعيل يضيف المعلم طلاباً إلى نفسه فقط، وبمستويات مُعيَّنة له، ويصل إشعار للمشرفين. يُطبَّق فوراً في الخادم.</p>
+        <label className="check"><input type="checkbox" checked={!!s.teachersCanEditStudents} onChange={(e) => setS({ ...s, teachersCanEditStudents: e.target.checked })} />السماح للمعلمين بتعديل بيانات طلابهم</label>
+        <p className="small muted">عند التفعيل يعدّل المعلم اسم طالبه وعمره وهاتفه وتاريخ التحاقه فقط (طلابه هو دون غيرهم)، وتُسجَّل كل عملية في سجل العمليات. الملاحظات العامة للإدارة فقط.</p>
         <h3 style={{ marginTop: 16 }}>خيارات عامة</h3>
         <label>أيام الغياب المتتالية لبدء التنبيه (ثم يتكرر مع كل يوم غياب إضافي)<input type="number" min="1" max="30" value={s.absenceThreshold} onChange={(e) => setS({ ...s, absenceThreshold: e.target.value })} /></label>
         <label>مدة الاحتفاظ بسجل العمليات (أيام)<input type="number" min="30" value={s.auditRetentionDays} onChange={(e) => setS({ ...s, auditRetentionDays: e.target.value })} /></label>
-        <label>عدد النسخ التلقائية المحتفظ بها<input type="number" min="1" max="52" value={s.backupKeep} onChange={(e) => setS({ ...s, backupKeep: e.target.value })} /></label>
+        <label>مهلة تسجيل وتعديل المعلم للسجلات السابقة (أيام، 0 = اليوم فقط)<input type="number" min="0" max="365" value={s.teacherEditDays} onChange={(e) => setS({ ...s, teacherEditDays: e.target.value })} /></label>
+        <p className="small muted">المشرف ومدير النظام بلا حد. النسخ الاحتياطي تلقائي كل أسبوع، ويُحتفظ بأحدث 3 نسخ فقط.</p>
         <button className="btn block" disabled={busy || !online}>حفظ الإعدادات</button>
       </form>
 

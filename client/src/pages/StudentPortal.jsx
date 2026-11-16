@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { api } from '../api.js';
-import { DAYS_AR, Empty, ErrorBox, Loading, Progress, fmtDT, fmtTime, gradeLabel, useLoad } from '../ui.jsx';
+import { DAYS_AR, Empty, ErrorBox, Loading, Progress, fmtDT, fmtTime, gradeLabel, useLoad, ATT_AR } from '../ui.jsx';
 
 const LVL_AR = { assign: 'تسجيل في المستوى', promotion: 'ترقية', demotion: 'نقل لمستوى أدنى' };
 const CAT_AR = { hifz: 'الحفظ', review: 'المراجعة', behavior: 'السلوك', discipline: 'الانضباط', general: 'ملاحظة' };
@@ -50,14 +50,16 @@ export default function StudentPortal() {
           </div>
 
           <div className="card">
-            <h3>تقدّمك في الحفظ</h3>
+            <h3>تقدّمك في الحفظ والمراجعة</h3>
             {cur.progress ? (
               <>
-                <Progress pct={cur.progress.pct} label={`${cur.progress.pct}% — حفظت ${cur.progress.memorized} من ${cur.progress.total} آية من سور المستوى`} />
+                <Progress pct={cur.progress.pct} label={`الحفظ ${cur.progress.pct}% — ${cur.progress.memorized} من ${cur.progress.total} آية`} />
+                <Progress tone="rev" pct={cur.progress.review?.pct} label={`المراجعة ${cur.progress.review?.pct ?? 0}% — ${cur.progress.review?.reviewed ?? 0} من ${cur.progress.total} آية`} />
                 {cur.progress.surahs.map((x) => (
                   <div className="srow" key={x.surah}>
-                    <div className="row between"><span>{x.name}</span><small className="muted">{x.memorized} من {x.total}{x.memorized === x.total ? ' ✓' : ''}</small></div>
+                    <div className="row between"><span>{x.name}</span><small className="muted">حفظ {x.memorized} · مراجعة {x.reviewed || 0} من {x.total}{x.memorized === x.total ? ' ✓' : ''}</small></div>
                     <Progress pct={Math.round((x.memorized / x.total) * 100)} thin />
+                    <Progress tone="rev" pct={Math.round(((x.reviewed || 0) / x.total) * 100)} thin />
                   </div>
                 ))}
               </>
@@ -83,12 +85,13 @@ export default function StudentPortal() {
                 <div className="row wrap" style={{ gap: 14 }}>
                   <span className="tag ok">حاضر {cur.attendance.present}</span>
                   <span className="tag bad">غائب {cur.attendance.absent}</span>
+                  {cur.attendance.excused > 0 && <span className="tag warn">بعذر {cur.attendance.excused}</span>}
                   <b>نسبة الحضور {cur.attendance.rate}%</b>
                 </div>
                 <div className="dots" aria-label="آخر أيام الحضور">
-                  {cur.attendance.recent.map((a) => <i key={a.date} className={a.status === 'absent' ? 'bad' : ''} title={`${a.date} — ${a.status === 'present' ? 'حاضر' : 'غائب'}`} />)}
+                  {cur.attendance.recent.map((a) => <i key={a.date} className={a.status === 'absent' ? 'bad' : a.status === 'excused' ? 'warn' : ''} title={`${a.date} — ${ATT_AR[a.status]}`} />)}
                 </div>
-                <small className="muted">آخر {cur.attendance.recent.length} يوماً (الأحدث أولاً): الأخضر حاضر والأحمر غائب</small>
+                <small className="muted">آخر {cur.attendance.recent.length} يوماً (الأحدث أولاً): الأخضر حاضر والأحمر غائب والأصفر غائب بعذر (لا يُحتسب في نسبة الحضور)</small>
               </>
             )}
           </div>
