@@ -72,6 +72,7 @@ function buildApp() {
   app.use('/api/groups', require('./routes/groups'));
   app.use('/api/promotions', require('./routes/promotions'));
   app.use('/api/notifications', require('./routes/notifications'));
+  app.use('/api/messages', require('./routes/messages'));
   app.use('/api/dashboard', require('./routes/dashboard'));
   app.use('/api/reports', require('./routes/reports'));
   app.use('/api/audit', require('./routes/audit'));
@@ -97,6 +98,7 @@ function buildApp() {
   app.use((err, req, res, next) => {
     console.error(err);
     if (err.type === 'entity.parse.failed') return res.status(400).json({ error: 'بيانات غير صالحة' });
+    if (err.type === 'entity.too.large') return res.status(413).json({ error: 'حجم الملف أكبر من المسموح (5 ميغابايت)' });
     res.status(500).json({ error: 'حدث خطأ غير متوقع، حاول مرة أخرى' });
   });
 

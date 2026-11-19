@@ -1,6 +1,6 @@
 {
   "name": "quran-school",
-  "version": "2.5.7",
+  "version": "2.6.0",
   "private": true,
   "description": "نظام إدارة مجتمع بالقرآن نحيا",
   "engines": {
@@ -11,7 +11,7 @@
     "dev": "node --watch server/index.js",
     "build": "node scripts/build.js",
     "test:syntax": "node --check server/index.js",
-    "test": "node --test server/test/progress.test.js server/test/batch.test.js server/test/account.test.js",
+    "test": "node --test server/test/progress.test.js server/test/batch.test.js server/test/account.test.js server/test/messages.test.js",
     "import:pages": "node scripts/import-quran-pages.js"
   },
   "dependencies": {

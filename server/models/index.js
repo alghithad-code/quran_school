@@ -160,6 +160,35 @@ const Notification = mongoose.model('Notification', (() => {
   return s;
 })());
 
+// رسائل الإدارة والمعلمين (باتجاه واحد). تُحذف تلقائياً بعد مدة الاحتفاظ من الإعدادات، ولا تدخل النسخ الاحتياطي.
+const InboxMessage = mongoose.model('InboxMessage', (() => {
+  const s = new Schema({
+    senderId: oid('User', { required: true }), senderName: String, senderRole: String,
+    title: { type: String, default: '', maxlength: 100 }, body: { type: String, default: '', maxlength: 2000 },
+    audience: { type: String, enum: ['teachers', 'students'], required: true },
+    scopeLabel: { type: String, default: '' }, // وصف المستلمين للعرض: «كل الطلاب»، «طلاب مستوى كذا»…
+    attachments: [{ _id: false, fileId: Schema.Types.ObjectId, name: String, size: Number, mime: String }],
+    recipientCount: { type: Number, default: 0 }, skipped: { type: Number, default: 0 }, // skipped: طلاب بلا حساب لم تصلهم
+    requestId: { type: String }, // يمنع تكرار الإرسال عند الضغط المتكرر
+  }, { timestamps: { createdAt: true, updatedAt: false } });
+  s.index({ senderId: 1, createdAt: -1 });
+  s.index({ createdAt: -1 });
+  s.index({ senderId: 1, requestId: 1 }, { unique: true, partialFilterExpression: { requestId: { $type: 'string' } } });
+  return s;
+})());
+
+const InboxRecipient = mongoose.model('InboxRecipient', (() => {
+  const s = new Schema({
+    messageId: oid('InboxMessage', { required: true }),
+    userId: oid('User', { required: true }), // حساب المستلم (معلم أو حساب طالب)
+    name: String, // اسم المستلم وقت الإرسال، لقائمة «من قرأ»
+    read: { type: Boolean, default: false }, readAt: Date, // القراءة بتأكيد المستلم الصريح
+  }, { timestamps: { createdAt: true, updatedAt: false } });
+  s.index({ messageId: 1, userId: 1 }, { unique: true });
+  s.index({ userId: 1, read: 1, createdAt: -1 });
+  return s;
+})());
+
 const Setting = mongoose.model('Setting', new Schema({
   key: { type: String, unique: true }, value: Schema.Types.Mixed,
 }, { timestamps: true }));
@@ -181,4 +210,4 @@ const Reader = mongoose.model('Reader', new Schema({
   createdBy: oid('User'),
 }, { timestamps: true }));
 
-module.exports = { Reader, Level, Group, GroupMessage, Student, Enrollment, Attendance, Recitation, Note, Transfer, LevelChange, PromotionRequest, Notification, Setting, Backup };
+module.exports = { Reader, Level, Group, GroupMessage, Student, Enrollment, Attendance, Recitation, Note, Transfer, LevelChange, PromotionRequest, Notification, InboxMessage, InboxRecipient, Setting, Backup };

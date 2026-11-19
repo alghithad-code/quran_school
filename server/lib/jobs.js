@@ -2,6 +2,7 @@ const AuditLog = require('../models/AuditLog');
 const { Backup } = require('../models');
 const { getSettings, saveSettings } = require('./settings');
 const { createBackup } = require('./backup');
+const { cleanupMessages } = require('./messageFiles');
 
 const DAY = 24 * 3600 * 1000;
 
@@ -21,9 +22,15 @@ async function weeklyBackup() {
   await createBackup('auto');
 }
 
+// حذف الرسائل ومرفقاتها بعد مدة الاحتفاظ المحددة في الإعدادات
+async function messageCleanup() {
+  const s = await getSettings();
+  await cleanupMessages(s.messageRetentionDays);
+}
+
 function start() {
   const tick = async () => {
-    for (const job of [auditCleanup, weeklyBackup]) {
+    for (const job of [auditCleanup, weeklyBackup, messageCleanup]) {
       try { await job(); } catch (e) { console.error(`job ${job.name} failed:`, e.message); }
     }
   };

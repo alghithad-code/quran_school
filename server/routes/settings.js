@@ -10,7 +10,7 @@ router.use(requireAuth);
 router.get('/', async (req, res, next) => {
   try {
     const s = await getSettings();
-    if (req.user.role !== 'admin') return res.json({ gradeScale: s.gradeScale, absenceThreshold: s.absenceThreshold, teachersCanAddStudents: s.teachersCanAddStudents, teachersCanEditStudents: s.teachersCanEditStudents });
+    if (req.user.role !== 'admin') return res.json({ gradeScale: s.gradeScale, absenceThreshold: s.absenceThreshold, teachersCanAddStudents: s.teachersCanAddStudents, teachersCanEditStudents: s.teachersCanEditStudents, teachersCanMessage: s.teachersCanMessage });
     res.json(s);
   } catch (e) { next(e); }
 });
@@ -26,6 +26,8 @@ const schema = z.object({
   teacherEditDays: z.coerce.number().int().min(0, 'من 0 إلى 365').max(365, 'من 0 إلى 365').optional(),
   teachersCanAddStudents: z.boolean().optional(),
   teachersCanEditStudents: z.boolean().optional(),
+  teachersCanMessage: z.boolean().optional(),
+  messageRetentionDays: z.coerce.number().int().min(1, 'من 1 إلى 365 يوماً').max(365, 'من 1 إلى 365 يوماً').optional(),
 });
 
 router.patch('/', requireRole('admin'), async (req, res, next) => {

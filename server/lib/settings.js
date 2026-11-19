@@ -12,6 +12,8 @@ const DEFAULTS = {
   auditRetentionDays: 365,
   absenceThreshold: 3, // عدد أيام الغياب المتتالية لإرسال تنبيه
   teacherEditDays: 7, // كم يوماً سابقاً يستطيع المعلم فيها تسجيل أو تعديل السجلات (المشرف والمدير بلا حد)
+  teachersCanMessage: false, // السماح للمعلمين بمراسلة طلابهم (المدير والمشرف يراسلون دائماً)
+  messageRetentionDays: 30, // مدة بقاء الرسائل ومرفقاتها قبل حذفها تلقائياً
   teachersCanEditStudents: false, // السماح للمعلم بتعديل بيانات طلابه (الاسم والعمر والهاتف وتاريخ الالتحاق)
   teachersCanAddStudents: false, // يشغّله ويوقفه مدير النظام فقط
   lastAuditCleanupAt: null,
