@@ -158,12 +158,12 @@ export function ComposeMessage({ me, preset, onClose, onDone }) {
       <form onSubmit={submit}>
         {preset ? <p className="small muted" style={{ marginTop: 0 }}>تصل الرسالة إلى حساب الطالب في بوابته.</p> : (
           <>
-            {manager && <div className="row">{seg(audience === 'students', () => chooseAudience('students'), 'للطلاب')}{seg(audience === 'teachers', () => chooseAudience('teachers'), 'للمعلمين')}</div>}
-            <div className="row">
+            {manager && <div className="row">{seg(audience === 'students', () => chooseAudience('students'), 'للطلاب')}{seg(audience === 'teachers', () => chooseAudience('teachers'), 'للمعلمين')}{seg(audience === 'both', () => chooseAudience('both'), 'للمعلمين والطلاب معاً')}</div>}
+            {audience === 'both' ? <p className="small muted">تصل الرسالة نفسها إلى كل المعلمين وكل الطلاب (من لديهم حسابات فعّالة)، ويظهر لك من قرأها منهم جميعاً في قائمة واحدة.</p> : <div className="row">
               {audience === 'teachers' ? <>{seg(scope === 'all', () => setScope('all'), 'كل المعلمين')}{seg(scope === 'selected', () => setScope('selected'), 'معلمون محددون')}</>
                 : manager ? <>{seg(scope === 'all', () => setScope('all'), 'كل الطلاب')}{seg(scope === 'filter', () => setScope('filter'), 'تصفية')}</>
                   : seg(true, () => {}, 'كل طلابي')}
-            </div>
+            </div>}
             {audience === 'teachers' && scope === 'selected' && (
               <div className="bsurahs">{teachers.map((t) => <Check key={t.id} checked={pickT.has(t.id)} onChange={() => toggle(pickT, setPickT, t.id)}>{t.name}</Check>)}{!teachers.length && <Empty text="لا يوجد معلمون" />}</div>
             )}
