@@ -16,6 +16,7 @@ import Levels from './pages/Levels.jsx';
 import Promotions from './pages/Promotions.jsx';
 import Reports from './pages/Reports.jsx';
 import Notifications from './pages/Notifications.jsx';
+import Messages, { MessagePopup, useMsgUnread } from './pages/Messages.jsx';
 import Audit from './pages/Audit.jsx';
 import Admin from './pages/Admin.jsx';
 import More from './pages/More.jsx';
@@ -23,7 +24,7 @@ import Mushaf, { PublicMushaf } from './pages/Mushaf.jsx';
 import Readers from './pages/Readers.jsx';
 import StudentApp from './pages/StudentApp.jsx';
 
-const TITLES = { mushaf: 'المصحف الشريف', readers: 'قراء المصحف', '': 'الرئيسية', students: 'الطلاب', users: 'المشرفون والمديرون', teachers: 'المعلمون', groups: 'المجموعات', levels: 'المستويات', promotions: 'طلبات الترقية', reports: 'التقارير', notifications: 'الإشعارات', audit: 'سجل العمليات', admin: 'الإعدادات والنسخ', more: 'حسابي' };
+const TITLES = { mushaf: 'المصحف الشريف', messages: 'الرسائل', readers: 'قراء المصحف', '': 'الرئيسية', students: 'الطلاب', users: 'المشرفون والمديرون', teachers: 'المعلمون', groups: 'المجموعات', levels: 'المستويات', promotions: 'طلبات الترقية', reports: 'التقارير', notifications: 'الإشعارات', audit: 'سجل العمليات', admin: 'الإعدادات والنسخ', more: 'حسابي' };
 
 export default function App() {
   const [user, setUser] = useState(null);
@@ -63,6 +64,8 @@ export default function App() {
     return () => clearInterval(t);
   }, [user, refreshUnread]);
 
+  const [msgUnread, refreshMsg] = useMsgUnread(!!user && user.role !== 'student');
+
   async function logout() {
     try { await api('/auth/logout', { method: 'POST' }); } catch { /* تنتهي الجلسة محلياً على أي حال */ }
     setCsrf(''); setUser(null); window.location.hash = '#/';
@@ -92,6 +95,7 @@ export default function App() {
     case 'promotions': page = <Promotions me={user} online={online} />; break;
     case 'reports': page = <Reports me={user} query={query} />; break;
     case 'notifications': page = <Notifications onChange={refreshUnread} />; break;
+    case 'messages': page = <Messages me={user} online={online} onChange={refreshMsg} />; break;
     case 'audit': page = isManager ? <Audit /> : <Home user={user} />; break;
     case 'admin': page = user.role === 'admin' ? <Admin online={online} /> : <Home user={user} />; break;
     case 'mushaf': page = <Mushaf authed online={online} />; break;
@@ -111,6 +115,7 @@ export default function App() {
     ['reports', 'chart', 'التقارير'],
     ['mushaf', 'bookopen', 'المصحف الشريف'],
     ['notifications', 'bell', 'الإشعارات'],
+    ['messages', 'mail', 'الرسائل'],
     isManager && ['audit', 'shield', 'سجل العمليات'],
     user.role === 'admin' && ['readers', 'volume', 'قراء المصحف'],
     user.role === 'admin' && ['admin', 'sliders', 'الإعدادات والنسخ'],
@@ -127,6 +132,7 @@ export default function App() {
               <a key={k} href={'#/' + k} className={'mi' + (key === k ? ' on' : '')}>
                 <Icon name={icon} /><span>{label}</span>
                 {k === 'notifications' && unread > 0 && <i className="badge">{unread > 99 ? '99+' : unread}</i>}
+                {k === 'messages' && msgUnread > 0 && <i className="badge">{msgUnread > 99 ? '99+' : msgUnread}</i>}
               </a>
             ))}
           </nav>
@@ -146,6 +152,7 @@ export default function App() {
             </button>
           </header>
           <main className="content">{page}</main>
+          <MessagePopup key={user.id} onChange={refreshMsg} />
           <nav className="bottom noprint">
             <button className={key === '' ? 'on' : ''} onClick={() => go('/')}><Icon name="home" /><span>الرئيسية</span></button>
             <button className={key === 'students' ? 'on' : ''} onClick={() => go('/students')}><Icon name="book" /><span>الطلاب</span></button>

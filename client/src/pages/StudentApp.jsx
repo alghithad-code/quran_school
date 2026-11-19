@@ -3,9 +3,10 @@ import { api } from '../api.js';
 import { Icon, Logo, PasswordInput, go } from '../ui.jsx';
 import More from './More.jsx';
 import Mushaf from './Mushaf.jsx';
+import Messages, { MessagePopup, useMsgUnread } from './Messages.jsx';
 import StudentPortal from './StudentPortal.jsx';
 
-const TITLES = { '': 'صفحتي', mushaf: 'المصحف الشريف', more: 'تعديل بيانات الحساب' };
+const TITLES = { '': 'صفحتي', mushaf: 'المصحف الشريف', messages: 'الرسائل', more: 'تعديل بيانات الحساب' };
 
 // الكلمة المؤقتة التي سلّمها المعلم: لا يدخل الطالب صفحته قبل أن يختار كلمته الخاصة
 function ForcePassword({ user, online, onDone, onLogout }) {
@@ -40,20 +41,21 @@ function ForcePassword({ user, online, onDone, onLogout }) {
 export default function StudentApp({ user, setUser, online, path, onLogout }) {
   const [open, setOpen] = useState(false);
   useEffect(() => { setOpen(false); }, [path]);
+  const [msgUnread, refreshMsg] = useMsgUnread(!user.mustChangePassword); // الرسائل لا تُفتح قبل تغيير كلمة المرور المؤقتة
 
   if (user.mustChangePassword) return <ForcePassword user={user} online={online} onDone={setUser} onLogout={onLogout} />;
 
   const key = path.split('/').filter(Boolean)[0] || '';
   const k = key in TITLES ? key : '';
-  const page = k === 'mushaf' ? <Mushaf authed online={online} /> : k === 'more' ? <More online={online} onLogout={onLogout} /> : <StudentPortal />;
-  const items = [['', 'home', 'صفحتي'], ['mushaf', 'bookopen', 'المصحف الشريف'], ['more', 'lock', 'تعديل بيانات الحساب']];
+  const page = k === 'mushaf' ? <Mushaf authed online={online} /> : k === 'messages' ? <Messages me={user} online={online} onChange={refreshMsg} /> : k === 'more' ? <More online={online} onLogout={onLogout} /> : <StudentPortal />;
+  const items = [['', 'home', 'صفحتي'], ['messages', 'mail', 'الرسائل'], ['mushaf', 'bookopen', 'المصحف الشريف'], ['more', 'lock', 'تعديل بيانات الحساب']];
 
   return (
     <div className="shell">
       <aside className={'side noprint' + (open ? ' open' : '')}>
         <div className="brand"><Logo size={44} /><div><b>مجتمع بالقرآن نحيا</b><small>صفحة الطالب</small></div></div>
         <nav className="menu">
-          {items.map(([p, icon, label]) => <a key={p} href={'#/' + p} className={'mi' + (k === p ? ' on' : '')}><Icon name={icon} /><span>{label}</span></a>)}
+          {items.map(([p, icon, label]) => <a key={p} href={'#/' + p} className={'mi' + (k === p ? ' on' : '')}><Icon name={icon} /><span>{label}</span>{p === 'messages' && msgUnread > 0 && <i className="badge">{msgUnread > 99 ? '99+' : msgUnread}</i>}</a>)}
         </nav>
         <div className="who"><b>{user.name}</b><small>طالب</small></div>
         <button className="mi out" onClick={onLogout}><Icon name="logout" /><span>تسجيل الخروج</span></button>
@@ -67,8 +69,10 @@ export default function StudentApp({ user, setUser, online, path, onLogout }) {
           <span style={{ width: 44 }} />
         </header>
         <main className="content">{page}</main>
+        <MessagePopup onChange={refreshMsg} />
         <nav className="bottom noprint">
           <button className={k === '' ? 'on' : ''} onClick={() => go('/')}><Icon name="home" /><span>صفحتي</span></button>
+          <button className={k === 'messages' ? 'on' : ''} onClick={() => go('/messages')}><Icon name="mail" />{msgUnread > 0 && <i className="badge">{msgUnread > 99 ? '99+' : msgUnread}</i>}<span>الرسائل</span></button>
           <button className={k === 'mushaf' ? 'on' : ''} onClick={() => go('/mushaf')}><Icon name="bookopen" /><span>المصحف</span></button>
           <button className={k === 'more' ? 'on' : ''} onClick={() => go('/more')}><Icon name="lock" /><span>حسابي</span></button>
         </nav>

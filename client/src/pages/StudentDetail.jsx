@@ -4,6 +4,7 @@ import { SURAHS } from '../quran.js';
 import { QuranReader } from '../quranReader.jsx';
 import StudentAccount from './StudentAccount.jsx';
 import BatchRecordForm from './BatchRecord.jsx';
+import { ComposeMessage } from './Messages.jsx';
 import { BackLink, CAT_AR, DAYS_AR, ErrorBox, IconBtn, Loading, Modal, Progress, ATT_AR, ATT_CLS, STATUS_AR, fmtDT, fmtTime, go, gradeLabel, qs, todayStr, useFlash, useLoad, useSettings } from '../ui.jsx';
 
 const LVL_AR = { assign: 'تعيين', promotion: 'ترقية', demotion: 'خفض' };
@@ -106,7 +107,7 @@ function RecordForm({ enrollmentId, kind, rec, onDone, onClose, scale, levelSura
 }
 
 export default function StudentDetail({ id, me, online }) {
-  const { gradeScale: scale, teachersCanEditStudents } = useSettings();
+  const { gradeScale: scale, teachersCanEditStudents, teachersCanMessage } = useSettings();
   const isManager = me.role !== 'teacher';
   const canEditStudent = isManager || !!teachersCanEditStudents; // المعلم يعدّل بيانات طلابه إن سمح مدير النظام
   const [eid, setEid] = useState(null);
@@ -154,6 +155,7 @@ export default function StudentDetail({ id, me, online }) {
         {info.data.groups.length > 0 && <div className="metas" style={{ marginTop: 6 }}>{info.data.groups.map((g) => <a key={g.id} className="goal" href={'#/groups/' + g.id}>{g.name}</a>)}</div>}
         <div className="irow" style={{ marginTop: 10 }}>
           {s.whatsapp && <IconBtn icon="chat" tone="wa" label="واتساب" href={s.whatsapp} />}
+          {(me.role !== 'teacher' || teachersCanMessage) && <IconBtn icon="mail" label="إرسال رسالة للطالب" disabled={!online} onClick={() => setModal({ msg: true })} />}
           {canEditStudent && <IconBtn icon="user" label="تعديل بيانات الطالب" disabled={!online} onClick={() => setModal({ editS: true, f: { name: s.name, age: s.age ?? '', phone: s.phone, enrolledAt: s.enrolledAt, notes: s.notes } })} />}
           <IconBtn icon="file" tone="gold" label="تقرير الطالب" onClick={() => go('/reports' + qs({ type: 'student', id: s.id }))} />
           {isManager && <IconBtn icon="plus" tone="ok" caption="مستوى" label="تسجيل الطالب في مستوى إضافي" disabled={!online} onClick={() => setModal({ addE: true, f: { levelId: '', teacherId: '', position: '' } })} />}
@@ -273,6 +275,7 @@ export default function StudentDetail({ id, me, online }) {
 
       {modal?.reader && <QuranReader {...modal.reader} onClose={() => setModal(null)} />}
       {modal?.kind && cur && <RecordForm enrollmentId={cur.id} kind={modal.kind} rec={modal.rec} presetSurah={modal.presetSurah} scale={scale} levelSurahs={levelSurahs} onDone={done} onClose={() => setModal(null)} />}
+      {modal?.msg && <ComposeMessage me={me} preset={{ studentId: id, studentName: s.name }} onClose={() => setModal(null)} onDone={(m) => { setModal(null); flash.ok(m); }} />}
       {modal?.batch && cur && <BatchRecordForm enrollmentId={cur.id} kind={modal.batch} surahs={levelSurahs} scale={scale} progress={cur.progress} onDone={done} onClose={() => setModal(null)} />}
       {modal?.surahInfo && cur && (() => {
         const x = modal.surahInfo, hp = Math.round((x.memorized / x.total) * 100), rp = Math.round(((x.reviewed || 0) / x.total) * 100);

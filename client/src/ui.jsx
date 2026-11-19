@@ -76,19 +76,25 @@ export const useSettings = () => useContext(SettingsCtx);
 export const gradeLabel = (scale, key) => scale.find((g) => g.key === key)?.label || key || '—';
 
 // ---------- مكونات ----------
+// عند استبدال نافذة بأخرى في الدفعة نفسها (مثل فتح «تسجيل حفظ» من تفاصيل السورة) يجب ألا يُغلق مدخل السجل
+// الذي تتركه النافذة القديمة النافذةَ الجديدة: نؤجّل الرجوع للسجل، فإن جاءت نافذة بعدها أعادت استخدام المدخل نفسه.
+let pendingModal = null; // { id, timer } لنافذة أُغلقت وينتظر إزالة مدخلها من السجل
 export function Modal({ title, onClose, children }) {
   const closeRef = useRef(onClose);
   closeRef.current = onClose;
   useEffect(() => {
     // نضيف مدخلاً في السجل ليغلق زر الرجوع النافذة. عند الإغلاق بالزر نزيله إن كان ما زال الأخير.
     const id = Math.random().toString(36).slice(2);
-    window.history.pushState({ modalId: id }, '');
+    if (pendingModal) { clearTimeout(pendingModal.timer); pendingModal = null; window.history.replaceState({ modalId: id }, ''); }
+    else window.history.pushState({ modalId: id }, '');
     let popped = false;
     const onPop = () => { popped = true; closeRef.current(); };
     window.addEventListener('popstate', onPop);
     return () => {
       window.removeEventListener('popstate', onPop);
-      if (!popped && window.history.state?.modalId === id) window.history.back();
+      if (popped) return;
+      const me = { id, timer: setTimeout(() => { if (pendingModal === me) pendingModal = null; if (window.history.state?.modalId === id) window.history.back(); }, 0) };
+      pendingModal = me;
     };
   }, []);
   return (
@@ -236,6 +242,9 @@ const ICONS = {
   chevR: ['M9 18l6-6-6-6'],
   chevL: ['M15 18l-6-6 6-6'],
   volume: ['M11 5L6 9H2v6h4l5 4V5z', 'M15.54 8.46a5 5 0 0 1 0 7.07'],
+  mail: ['M3 6h18v12H3z', 'M3 7l9 6.5L21 7'],
+  send: ['M22 2L11 13', 'M22 2l-7 20-4-9-9-4 20-7z'],
+  clip: ['M21 11.5l-8.8 8.8a5.5 5.5 0 0 1-7.8-7.8l9-9a3.7 3.7 0 0 1 5.2 5.2l-9 9a1.8 1.8 0 0 1-2.6-2.6l8.3-8.3'],
   search: ['M11 19a8 8 0 1 0 0-16 8 8 0 0 0 0 16z', 'M21 21l-4.35-4.35'],
 };
 export function Icon({ name, size = 22 }) {

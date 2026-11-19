@@ -21,7 +21,7 @@ export default function Admin({ online }) {
   }
   const saveSettings = (e) => {
     e.preventDefault();
-    run(() => api('/settings', { method: 'PATCH', body: { gradeScale: s.gradeScale, auditRetentionDays: s.auditRetentionDays, absenceThreshold: s.absenceThreshold, teacherEditDays: s.teacherEditDays, teachersCanAddStudents: !!s.teachersCanAddStudents, teachersCanEditStudents: !!s.teachersCanEditStudents } }), 'تم حفظ الإعدادات (يُطبَّق سلّم التقييم الجديد بعد إعادة فتح التطبيق)');
+    run(() => api('/settings', { method: 'PATCH', body: { gradeScale: s.gradeScale, auditRetentionDays: s.auditRetentionDays, absenceThreshold: s.absenceThreshold, teacherEditDays: s.teacherEditDays, teachersCanAddStudents: !!s.teachersCanAddStudents, teachersCanEditStudents: !!s.teachersCanEditStudents, teachersCanMessage: !!s.teachersCanMessage, messageRetentionDays: s.messageRetentionDays } }), 'تم حفظ الإعدادات (يُطبَّق سلّم التقييم الجديد بعد إعادة فتح التطبيق)');
   };
   const setG = (i, k, v) => setS((x) => ({ ...x, gradeScale: x.gradeScale.map((g, j) => (j === i ? { ...g, [k]: v } : g)) }));
 
@@ -61,6 +61,10 @@ export default function Admin({ online }) {
         <p className="small muted">عند التفعيل يضيف المعلم طلاباً إلى نفسه فقط، وبمستويات مُعيَّنة له، ويصل إشعار للمشرفين. يُطبَّق فوراً في الخادم.</p>
         <label className="check"><input type="checkbox" checked={!!s.teachersCanEditStudents} onChange={(e) => setS({ ...s, teachersCanEditStudents: e.target.checked })} />السماح للمعلمين بتعديل بيانات طلابهم</label>
         <p className="small muted">عند التفعيل يعدّل المعلم اسم طالبه وعمره وهاتفه وتاريخ التحاقه فقط (طلابه هو دون غيرهم)، وتُسجَّل كل عملية في سجل العمليات. الملاحظات العامة للإدارة فقط.</p>
+        <label className="check"><input type="checkbox" checked={!!s.teachersCanMessage} onChange={(e) => setS({ ...s, teachersCanMessage: e.target.checked })} />السماح للمعلمين بمراسلة طلابهم</label>
+        <p className="small muted">المدير والمشرف يراسلون المعلمين والطلاب دائماً. عند التفعيل يرسل المعلم لكل طلابه أو لطالب واحد منهم فقط، وتبقى الرسائل الواردة ظاهرة للجميع حتى لو أُوقف الإرسال.</p>
+        <label>مدة بقاء الرسائل ومرفقاتها (أيام)<input type="number" min="1" max="365" value={s.messageRetentionDays} onChange={(e) => setS({ ...s, messageRetentionDays: e.target.value })} /></label>
+        <p className="small muted">تُحذف الرسالة ومرفقاتها تلقائياً من جميع المستلمين بعد هذه المدة.</p>
         <h3 style={{ marginTop: 16 }}>خيارات عامة</h3>
         <label>أيام الغياب المتتالية لبدء التنبيه (ثم يتكرر مع كل يوم غياب إضافي)<input type="number" min="1" max="30" value={s.absenceThreshold} onChange={(e) => setS({ ...s, absenceThreshold: e.target.value })} /></label>
         <label>مدة الاحتفاظ بسجل العمليات (أيام)<input type="number" min="30" value={s.auditRetentionDays} onChange={(e) => setS({ ...s, auditRetentionDays: e.target.value })} /></label>

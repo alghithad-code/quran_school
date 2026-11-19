@@ -253,3 +253,8 @@ body.mushaf-open .bottom { display: none; }
 .sbtn .two { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
 .sbtn .two small { display: block; margin-bottom: 3px; }
 .prog.rev .pbar i { background: linear-gradient(90deg, #7aa7d9, #3b6fb0); }
+/* الرسائل */
+.card.unread { border-color: var(--gold2); background: #fffaf0; }
+.mbody { white-space: pre-wrap; margin: 6px 0; line-height: 1.8; }
+.matt { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
+.matt img { max-width: 140px; max-height: 120px; border-radius: 10px; border: 1px solid var(--bd); display: block; }
