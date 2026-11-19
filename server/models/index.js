@@ -165,7 +165,7 @@ const InboxMessage = mongoose.model('InboxMessage', (() => {
   const s = new Schema({
     senderId: oid('User', { required: true }), senderName: String, senderRole: String,
     title: { type: String, default: '', maxlength: 100 }, body: { type: String, default: '', maxlength: 2000 },
-    audience: { type: String, enum: ['teachers', 'students'], required: true },
+    audience: { type: String, enum: ['teachers', 'students', 'both'], required: true },
     scopeLabel: { type: String, default: '' }, // وصف المستلمين للعرض: «كل الطلاب»، «طلاب مستوى كذا»…
     attachments: [{ _id: false, fileId: Schema.Types.ObjectId, name: String, size: Number, mime: String }],
     recipientCount: { type: Number, default: 0 }, skipped: { type: Number, default: 0 }, // skipped: طلاب بلا حساب لم تصلهم

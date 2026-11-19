@@ -8,7 +8,7 @@ const MAX_IDS = 300; // أقصى عدد معلمين/مستويات في اخت�
 const isId = (v) => typeof v === 'string' && /^[a-f0-9]{24}$/i.test(v);
 const idList = (v) => (Array.isArray(v) ? [...new Set(v.filter(isId))].slice(0, MAX_IDS) : []);
 
-// المرسِل مدير/مشرف: للمعلمين (الكل | محددون) أو للطلاب (الكل | تصفية بالمستوى والمعلم | طالب واحد).
+// المرسِل مدير/مشرف: للمعلمين (الكل | محددون) أو للطلاب (الكل | تصفية بالمستوى والمعلم | طالب واحد) أو للاثنين معاً (الكل).
 // المرسِل معلم: لطلابه فقط (الكل | طالب واحد). يعيد { value } أو { error }.
 function cleanMessage(body, role) {
   const b = body || {};
@@ -23,11 +23,13 @@ function cleanMessage(body, role) {
   const manager = role === 'admin' || role === 'supervisor';
   if (!manager && role !== 'teacher') return { error: 'غير مسموح' };
   const audience = b.audience;
-  if (!['teachers', 'students'].includes(audience)) return { error: 'اختر المستلمين: المعلمون أو الطلاب' };
+  if (!['teachers', 'students', 'both'].includes(audience)) return { error: 'اختر المستلمين: المعلمون أو الطلاب أو الاثنان معاً' };
   if (!manager && audience !== 'students') return { error: 'المعلم يراسل طلابه فقط' };
 
   let scope = b.scope, teacherIds = [], levelIds = [], studentId = null;
-  if (audience === 'teachers') {
+  if (audience === 'both') {
+    scope = 'all'; // للمعلمين والطلاب معاً: كل المعلمين وكل الطلاب (للمدير والمشرف فقط)
+  } else if (audience === 'teachers') {
     if (!['all', 'selected'].includes(scope)) return { error: 'اختر: كل المعلمين أو معلمين محددين' };
     if (scope === 'selected') { teacherIds = idList(b.teacherIds); if (!teacherIds.length) return { error: 'اختر معلماً واحداً على الأقل' }; }
   } else if (manager) {

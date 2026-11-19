@@ -115,7 +115,16 @@ router.post('/', requireAuth, sendLimiter, async (req, res, next) => {
 
     // ----- تحديد المستلمين (والتحقق من صلاحية الوصول إليهم في الخادم) -----
     let recipients = [], skipped = 0, scopeLabel = '';
-    if (v.audience === 'teachers') {
+    if (v.audience === 'both') { // كل المعلمين وكل الطلاب في رسالة واحدة
+      const teachers = await User.find({ role: 'teacher', status: 'active' }).select('name').lean();
+      const students = await Student.find({ status: 'active' }).select('name').lean();
+      const nm = new Map(students.map((s) => [String(s._id), s.name]));
+      const accts = await User.find({ role: 'student', status: 'active', studentId: { $in: [...nm.keys()] } }).select('studentId').lean();
+      const sr = accts.map((a) => ({ userId: a._id, name: nm.get(String(a.studentId)) }));
+      skipped = nm.size - sr.length;
+      recipients = [...teachers.map((u) => ({ userId: u._id, name: u.name })), ...sr];
+      scopeLabel = 'كل المعلمين وكل الطلاب';
+    } else if (v.audience === 'teachers') {
       const f = { role: 'teacher', status: 'active', ...(v.scope === 'selected' ? { _id: { $in: v.teacherIds } } : {}) };
       recipients = (await User.find(f).select('name').lean()).map((u) => ({ userId: u._id, name: u.name }));
       scopeLabel = v.scope === 'all' ? 'كل المعلمين' : `معلمون محددون (${recipients.length})`;
@@ -145,7 +154,7 @@ router.post('/', requireAuth, sendLimiter, async (req, res, next) => {
       skipped = nm.size - recipients.length; // طلاب بلا حساب (أو حسابهم موقوف) لن تصلهم الرسالة
     }
     if (!recipients.length) {
-      return res.status(400).json({ error: v.audience === 'students' && skipped ? 'الطلاب المحددون ليس لديهم حسابات فعّالة، فلا يمكن إيصال الرسالة لهم' : 'لا يوجد مستلمون لهذه الرسالة' });
+      return res.status(400).json({ error: v.audience !== 'teachers' && skipped ? 'الطلاب المحددون ليس لديهم حسابات فعّالة، فلا يمكن إيصال الرسالة لهم' : 'لا يوجد مستلمون لهذه الرسالة' });
     }
 
     // ----- المرفقات: يجب أن تكون مرفوعة من المرسِل نفسه ولم تُستخدم قبلاً -----

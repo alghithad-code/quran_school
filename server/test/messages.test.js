@@ -21,6 +21,14 @@ test('مدير: لكل الطلاب / تصفية / طالب واحد', () => {
   assert.match(cleanMessage(msg({ audience: 'students', scope: 'student' }), 'admin').error, /اختر الطالب/);
 });
 
+test('مدير: للمعلمين والطلاب معاً (الكل)، والمعلم لا يملكه', () => {
+  const r = cleanMessage(msg({ audience: 'both', scope: 'filter', teacherIds: [id(1)] }), 'admin');
+  assert.equal(r.value.audience, 'both');
+  assert.equal(r.value.scope, 'all'); // التصفية لا تُطبَّق على هذا الخيار
+  assert.ok(cleanMessage(msg({ audience: 'both' }), 'supervisor').value);
+  assert.match(cleanMessage(msg({ audience: 'both' }), 'teacher').error, /طلابه فقط/);
+});
+
 test('معلم: لطلابه فقط (الكل أو طالب واحد)، ولا يراسل المعلمين ولا يستخدم التصفية', () => {
   assert.ok(cleanMessage(msg({ audience: 'students', scope: 'all' }), 'teacher').value);
   assert.ok(cleanMessage(msg({ audience: 'students', scope: 'student', studentId: id(5) }), 'teacher').value);
